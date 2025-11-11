@@ -538,8 +538,18 @@ bool MapXmlParser::parseVehicleData(const QString& vehicleText)
             // state 1753195393.192 1 0 1 0 0 0 0 0 1
             QStringList parts = trimmedLine.split(' ', Qt::SkipEmptyParts);
             if (parts.size() >= 6) {
-                // 第五个数据（索引5）表示是否超出安全区
                 currentPoint.outOfSafeArea = (parts[5].toInt() == 1);
+                currentPoint.isAutoDriving = (parts[3].toInt() == 0);
+                currentPoint.isRetard = (parts[6].toInt() == 1);
+                currentPoint.isStop = (parts[7].toInt() == 1);
+                currentPoint.isQuickStop = (parts[8].toInt() == 1);
+                currentPoint.isEmergencyStop = (parts[9].toInt() == 1);
+            }
+        }
+        else if (trimmedLine.startsWith("guidance ")) {
+            QStringList parts = trimmedLine.split(' ', Qt::SkipEmptyParts);
+            if (parts.size() >= 6) {
+                currentPoint.distance = parts[5].toInt();
             }
         }
         else if (trimmedLine.startsWith("LeftWheel ")) {

@@ -9,7 +9,7 @@ Rectangle {
     // 使用上下文提供的全局 mapDataManager（由 AppManager 暴露）
     property real zoomLevel: 1.0
     property real minZoom: 0.1
-    property real maxZoom: 100.0
+    property real maxZoom: 1000.0
     property point panOffset: Qt.point(0, 0)
     property bool isDragging: false
     property point lastMousePos: Qt.point(0, 0)
@@ -19,6 +19,7 @@ Rectangle {
     property var trackAngles: []              // 角度(度)
     property var trackOutOfSafe: []           // 是否越界
     property var trackTimestamps: []          // 时间戳(ms)
+    property var trackIsAutoDriving: []       // 是否自动驾驶模式
     // 车轮数据
     property var leftWheelSetSpeed: []        // 左轮设定速度
     property var leftWheelMeasuredSpeed: []   // 左轮测量速度
@@ -96,16 +97,32 @@ Rectangle {
         return 1;
     }
     
-    color: "#f5f5f5"
+    color: '#ffffff'
     clip: true
     focus: true
     
     // 快捷键处理 - 改进版本，支持焦点链传递
     Keys.onPressed: function(event) {
-        // Ctrl+S: 适配视图
+        // Ctrl+Z: 适配视图
         if ((event.key === Qt.Key_Z) && (event.modifiers & Qt.ControlModifier)) {
             console.log("快捷键 Ctrl+Z 触发")
             fitMapToView()
+            event.accepted = true
+            return
+        }
+        
+        // 左方向键：上帧
+        if (event.key === Qt.Key_Left) {
+            console.log("快捷键 左方向键 触发 - 上帧")
+            stepBackward()
+            event.accepted = true
+            return
+        }
+        
+        // 右方向键：下帧
+        if (event.key === Qt.Key_Right) {
+            console.log("快捷键 右方向键 触发 - 下帧")
+            stepForward()
             event.accepted = true
             return
         }
@@ -158,7 +175,7 @@ Rectangle {
             anchors.fill: parent
             antialiasing: true
             // layer.enabled: true
-            layer.samples: 4
+            layer.samples: 8
             layer.smooth: true
             z: 1
             
@@ -166,7 +183,7 @@ Rectangle {
             ShapePath {
                 id: mainPath
                 strokeColor: "#2196F3"
-                strokeWidth: Math.max(0.05, 2.5 / mapViewer.zoomLevel)  // 逆向缩放保持恒定宽度
+                strokeWidth: Math.max(0.005, 2 / mapViewer.zoomLevel)  // 逆向缩放保持恒定宽度
                 fillColor: "transparent"
                 capStyle: ShapePath.RoundCap
                 joinStyle: ShapePath.RoundJoin
@@ -292,15 +309,15 @@ Rectangle {
                 y: scenePos.y
                 z: 100  // 提高z值确保不被其他元素遮挡
                 
-                // 位置标记圆点
+                // 位置标记方形（二维码）
                 Rectangle {
                     id: markerDot
                     anchors.centerIn: parent
                     // 保持屏幕像素大小稳定：使用逆缩放
                     width: Math.min(mapViewer.markerMaxSize, Math.max(mapViewer.markerMinSize, mapViewer.markerBaseSize))
                     height: width
-                    radius: width/2
-                    color: mapViewer.zoomLevel < 0.9 ? "transparent" : "#804CAF50" // 低倍缩放时用空心圈，放大后半透明实心
+                    radius: 2  // 小圆角，保持方形外观
+                    color: mapViewer.zoomLevel < 0.9 ? "transparent" : "#804CAF50" // 低倍缩放时用空心框，放大后半透明实心
                     border.color: "#2E7D32"
                     border.width: mapViewer.zoomLevel < 0.9 ? 1 : 2
                     opacity: 1.0
@@ -352,7 +369,7 @@ Rectangle {
             anchors.fill: parent
             antialiasing: true
             // layer.enabled: true
-            layer.samples: 4
+            layer.samples: 8
             layer.smooth: true
             z: 3
             visible: mapDataManager.vehicleTrackCount > 0
@@ -360,8 +377,8 @@ Rectangle {
             // 安全段（正常）
             ShapePath {
                 id: trackPathSafe
-                strokeColor: Qt.rgba(1, 0.62, 0.01)   // 橙色
-                strokeWidth: Math.max(0.04, 2 / mapViewer.zoomLevel)  // 逆向缩放保持恒定宽度
+                strokeColor: "#2E7D32"   
+                strokeWidth: Math.max(0.005, 1 / mapViewer.zoomLevel)  // 逆向缩放保持恒定宽度
                 fillColor: "transparent"
                 capStyle: ShapePath.RoundCap
                 joinStyle: ShapePath.RoundJoin
@@ -371,7 +388,7 @@ Rectangle {
             ShapePath {
                 id: trackPathDanger
                 strokeColor: "#FF3B30"   // 红色
-                strokeWidth: Math.max(0.04, 2 / mapViewer.zoomLevel)  // 逆向缩放保持恒定宽度
+                strokeWidth: Math.max(0.005, 1 / mapViewer.zoomLevel)  // 逆向缩放保持恒定宽度
                 fillColor: "transparent"
                 capStyle: ShapePath.RoundCap
                 joinStyle: ShapePath.RoundJoin
@@ -411,45 +428,70 @@ Rectangle {
             }
         }
         
-        // 完整轨迹预览（半透明显示整个行动路线）
-        Shape {
-            id: fullTrackPreviewShape
-            anchors.fill: parent
-            antialiasing: true
-            layer.samples: 4
-            layer.smooth: true
-            z: 2
-            visible: mapDataManager.vehicleTrackCount > 0
+
+        // 轨迹点标记显示（所有轨迹点的圆形标记）
+        Repeater {
+            id: trackPointMarkers
+            model: mapViewer.trackScreen && mapViewer.trackScreen.length > 0 ? mapViewer.trackScreen.length : 0
             
-            ShapePath {
-                id: fullTrackPreviewPath
-                strokeColor: Qt.rgba(0.69, 0.69, 0.68, 0.7)  // 灰色，54%透明度
-                strokeWidth: Math.max(0.12, 2 / mapViewer.zoomLevel)  // 逆向缩放保持恒定宽度
-                fillColor: "transparent"
-                capStyle: ShapePath.RoundCap
-                joinStyle: ShapePath.RoundJoin
-                PathSvg { id: fullTrackSvg; path: "" }
-            }
-            
-            // 生成完整轨迹路径
-            function generateFullTrackPath() {
-                if (!mapViewer.trackScreen || mapViewer.trackScreen.length === 0) {
-                    fullTrackSvg.path = "";
-                    return;
+            delegate: Item {
+                readonly property point trackPoint: (mapViewer.trackScreen && index < mapViewer.trackScreen.length) ? mapViewer.trackScreen[index] : Qt.point(0, 0)
+                readonly property bool isOutOfSafe: (mapViewer.trackOutOfSafe && index < mapViewer.trackOutOfSafe.length) ? !!mapViewer.trackOutOfSafe[index] : false
+                readonly property bool hasBarcode: {
+                    if (!mapViewer.trackRaw || index >= mapViewer.trackRaw.length) return false
+                    var point = mapViewer.trackRaw[index]
+                    return point && typeof point.barcode !== 'undefined' && point.barcode > 0
+                }
+
+                // 只有当小车经过该点（索引小于等于当前播放索引）时才显示
+                readonly property bool shouldShow: mapViewer.playIndex >= 0 && index <= mapViewer.playIndex
+                
+                // 根据 isOutOfSafe 和 hasBarcode 计算颜色
+                // 优先级：越界+二维码 > 越界 > 二维码 > 正常
+                readonly property color dotColor: {
+                    if (mapViewer.zoomLevel < 0.9) return "transparent"
+                    if (isOutOfSafe && hasBarcode) return "#FF6B35"  // 橙色：越界且有二维码
+                    if (isOutOfSafe) return "#FFCC00"  // 黄色：越界
+                    if (hasBarcode) return '#f0c369'  // 黄色：有二维码
+                    return "#4CAF50"  // 绿色：正常
+                }
+                readonly property color borderColor: {
+                    if (isOutOfSafe && hasBarcode) return "#FF3B30"  // 红色边框：越界且有二维码
+                    if (isOutOfSafe) return "#FF3B30"  // 红色边框：越界
+                    if (hasBarcode) return "#c29438"  // 深黄色边框：有二维码
+                    return "#2E7D32"  // 绿色边框：正常
                 }
                 
-                var d = "";
-                if (mapViewer.trackScreen.length > 0) {
-                    d = "M " + mapViewer.trackScreen[0].x + " " + mapViewer.trackScreen[0].y + " ";
-                    for (var i = 1; i < mapViewer.trackScreen.length; i++) {
-                        d += "L " + mapViewer.trackScreen[i].x + " " + mapViewer.trackScreen[i].y + " ";
+                x: trackPoint.x
+                y: trackPoint.y
+                z: 100
+                visible: shouldShow
+                
+                // 轨迹点圆形标记（外层大圈）
+                Rectangle {
+                    id: trackPointDot
+                    anchors.centerIn: parent
+                    // 保持屏幕像素大小稳定：使用逆缩放
+                    width: Math.min(mapViewer.markerMaxSize, Math.max(mapViewer.markerMinSize, mapViewer.markerBaseSize))
+                    height: width
+                    radius: width/2
+                    color: dotColor
+                    border.color: borderColor
+                    border.width: mapViewer.zoomLevel < 0.9 ? 1 : 1.5
+                    opacity: 0.85
+                    
+                    transform: Scale {
+                        // 抵消整体地图缩放，使标记点大小不随缩放变化
+                        xScale: 1.0 / scaleTransform.xScale
+                        yScale: 1.0 / scaleTransform.yScale
+                        origin.x: trackPointDot.width/2
+                        origin.y: trackPointDot.height/2
                     }
                 }
-                fullTrackSvg.path = d;
+                
             }
         }
         
-
         // 当前车辆位置和状态显示（单个动态点）
         Item {
             id: currentVehicle
@@ -571,7 +613,7 @@ Rectangle {
             Rectangle {
                 id: barcodeNotification
                 anchors.left: parent.right
-                anchors.leftMargin: 2
+                anchors.leftMargin: 0.5
                 anchors.verticalCenter: parent.verticalCenter
                 width: barcodeText.width + 12
                 height: barcodeText.height + 8
@@ -656,9 +698,10 @@ Rectangle {
         onClicked: mapViewer.focus = true
         
         onPressed: function(mouse) {
-            // 先检测是否点击到任一marker
             var centerX = mapViewer.width / 2
             var centerY = mapViewer.height / 2
+            
+            // 先检测是否点击到任一 PositionMarker
             var markers = mapDataManager.getPositionMarkers()
             if (markers && markers.length > 0) {
                 for (var i = 0; i < markers.length; i++) {
@@ -671,8 +714,8 @@ Rectangle {
                     var dx = mouse.x - screenX
                     var dy = mouse.y - screenY
                     if (dx*dx + dy*dy <= 25*25) { // 25px点击半径
-                        console.log("Marker clicked:", marker.x, marker.y)
-                        markerCoordLabel.currentCoord = "(" + marker.x.toFixed(0) + ", " + marker.y.toFixed(0) + ")"
+                        console.log("PositionMarker clicked:", marker.x, marker.y)
+                        markerCoordLabel.currentCoord = " (" + marker.x.toFixed(0) + ", " + marker.y.toFixed(0) + ")"
                         markerCoordLabel.x = screenX - markerCoordLabel.width/2
                         markerCoordLabel.y = screenY - markerCoordLabel.height - 10
                         markerCoordLabel.visible = true
@@ -682,7 +725,37 @@ Rectangle {
                     }
                 }
             }
-            // 未点中marker，则进入拖拽
+            
+            // 检测是否点击到轨迹点（trackPointMarkers）
+            // 从后往前检测，优先匹配最新的轨迹点（避免重叠时误选旧点）
+            if (mapViewer.trackScreen && mapViewer.trackScreen.length > 0 && mapViewer.trackRaw && mapViewer.trackRaw.length > 0) {
+                var maxIndex = Math.min(mapViewer.playIndex, mapViewer.trackScreen.length - 1)
+                for (var j = maxIndex; j >= 0; j--) {
+                    var trackScreenPoint = mapViewer.trackScreen[j]
+                    // trackScreen 中的坐标已经是基础场景坐标，需要应用 transform
+                    var trackScreenX = centerX + mapViewer.zoomLevel * (trackScreenPoint.x - centerX) + mapViewer.panOffset.x
+                    var trackScreenY = centerY + mapViewer.zoomLevel * (trackScreenPoint.y - centerY) + mapViewer.panOffset.y
+                    var trackDx = mouse.x - trackScreenX
+                    var trackDy = mouse.y - trackScreenY
+                    // 使用稍大的点击半径，因为轨迹点标记较小
+                    var clickRadius = Math.max(25, mapViewer.markerBaseSize * 0.75 / 2 + 5)
+                    if (trackDx*trackDx + trackDy*trackDy <= clickRadius*clickRadius) {
+                        var trackPoint = mapViewer.trackRaw[j]
+                        if (trackPoint) {
+                            console.log("TrackPoint clicked:", trackPoint.x, trackPoint.y, "index:", j)
+                            markerCoordLabel.currentCoord = "(" + trackPoint.x.toFixed(0) + ", " + trackPoint.y.toFixed(0) + ")"
+                            markerCoordLabel.x = trackScreenX - markerCoordLabel.width/2
+                            markerCoordLabel.y = trackScreenY - markerCoordLabel.height - 10
+                            markerCoordLabel.visible = true
+                            // 不开始拖拽
+                            mapViewer.isDragging = false
+                            return
+                        }
+                    }
+                }
+            }
+            
+            // 未点中任何标记，则进入拖拽
             mapViewer.isDragging = true
             mapViewer.lastMousePos = Qt.point(mouse.x, mouse.y)
         }
@@ -904,8 +977,8 @@ Rectangle {
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        anchors.topMargin: 50
-        anchors.bottomMargin: 50
+        anchors.topMargin: 20
+        anchors.bottomMargin: 20
         width: collapsed ? 40 : 600
         color: "#FFFFFF"
         border.color: "#CCCCCC"
@@ -941,11 +1014,31 @@ Rectangle {
             spacing: 10
             visible: !chartPanel.collapsed
 
-            Text {
-                text: (mapViewer.currentWheel === "left" ? "左轮" : "右轮") + " · 设定/测量/差速/里程"
-                font.bold: true
-                font.pixelSize: 14
+            Row {
                 anchors.horizontalCenter: parent.horizontalCenter
+                spacing: 8
+                
+                Text {
+                    text: (mapViewer.currentWheel === "left" ? "左轮" : "右轮") + " · 设定/测量/差速/里程"
+                    font.bold: true
+                    font.pixelSize: 14
+                }
+                
+                Rectangle {
+                    width: modeText.width + 12
+                    height: modeText.height + 6
+                    color: (mapViewer.playIndex >= 0 && mapViewer.playIndex < mapViewer.trackIsAutoDriving.length && mapViewer.trackIsAutoDriving[mapViewer.playIndex]) ? "#4CAF50" : "#FF9800"
+                    radius: 4
+                    
+                    Text {
+                        id: modeText
+                        anchors.centerIn: parent
+                        text: (mapViewer.playIndex >= 0 && mapViewer.playIndex < mapViewer.trackIsAutoDriving.length && mapViewer.trackIsAutoDriving[mapViewer.playIndex]) ? "自动模式" : "手动模式"
+                        font.pixelSize: 11
+                        font.bold: true
+                        color: "#FFFFFF"
+                    }
+                }
             }
 
             Canvas {
@@ -1077,6 +1170,257 @@ Rectangle {
                 Button { text: mapViewer.currentWheel === "left" ? "左轮(当前)" : "左轮"; onClicked: { mapViewer.currentWheel = "left"; wheelChart.requestPaint() } }
                 Button { text: mapViewer.currentWheel === "right" ? "右轮(当前)" : "右轮"; onClicked: { mapViewer.currentWheel = "right"; wheelChart.requestPaint() } }
             }
+            
+            // 车辆详细信息显示区域
+            Rectangle {
+                width: parent.width - 20
+                height: infoRow.implicitHeight + 20
+                color: "#F8F8F8"
+                border.color: "#CCCCCC"
+                border.width: 1
+                radius: 4
+                anchors.horizontalCenter: parent.horizontalCenter
+                
+                Row {
+                    id: infoRow
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: 10
+                    spacing: 15
+                    
+                    // 获取当前轨迹点数据
+                    readonly property var currentPoint: {
+                        if (mapViewer.playIndex >= 0 && mapViewer.playIndex < mapViewer.trackRaw.length) {
+                            return mapViewer.trackRaw[mapViewer.playIndex]
+                        }
+                        return null
+                    }
+                    
+                    // 左列：基本信息、安全状态、二维码信息
+                    Column {
+                        width: (parent.width - parent.spacing) / 2
+                        spacing: 8
+                        
+                        // 基本信息
+                        Column {
+                            width: parent.width
+                            spacing: 4
+                            
+                            Text {
+                                text: "【基本信息】"
+                                font.bold: true
+                                font.pixelSize: 13
+                                color: "#333333"
+                            }
+                            
+                            Grid {
+                                columns: 2
+                                columnSpacing: 20
+                                rowSpacing: 4
+                                width: parent.width
+                                
+                                Text { text: "时间戳:"; font.pixelSize: 11; color: "#666666" }
+                                Text { 
+                                    text: infoRow.currentPoint ? formatTime(mapViewer.playIndex) : "---"
+                                    font.pixelSize: 11
+                                    color: "#333333"
+                                }
+                                
+                                Text { text: "X坐标:"; font.pixelSize: 11; color: "#666666" }
+                                Text { 
+                                    text: infoRow.currentPoint ? infoRow.currentPoint.x.toFixed(2) : "---"
+                                    font.pixelSize: 11
+                                    color: "#333333"
+                                }
+                                
+                                Text { text: "Y坐标:"; font.pixelSize: 11; color: "#666666" }
+                                Text { 
+                                    text: infoRow.currentPoint ? infoRow.currentPoint.y.toFixed(2) : "---"
+                                    font.pixelSize: 11
+                                    color: "#333333"
+                                }
+                                
+                                Text { text: "车头角度:"; font.pixelSize: 11; color: "#666666" }
+                                Text { 
+                                    text: infoRow.currentPoint ? (infoRow.currentPoint.angle ? infoRow.currentPoint.angle.toFixed(2) + "°" : "---") : "---"
+                                    font.pixelSize: 11
+                                    color: "#333333"
+                                }
+                            }
+                        }
+                        
+                        // 安全状态
+                        Column {
+                            width: parent.width
+                            spacing: 4
+                            
+                            Text {
+                                text: "【安全状态】"
+                                font.bold: true
+                                font.pixelSize: 13
+                                color: "#333333"
+                            }
+                            
+                            Grid {
+                                columns: 2
+                                columnSpacing: 20
+                                rowSpacing: 4
+                                width: parent.width
+                                
+                                Text { text: "超出安全区:"; font.pixelSize: 11; color: "#666666" }
+                                Text { 
+                                    text: infoRow.currentPoint ? (infoRow.currentPoint.outOfSafeArea ? "是" : "否") : "---"
+                                    font.pixelSize: 11
+                                    color: infoRow.currentPoint && infoRow.currentPoint.outOfSafeArea ? "#FF3B30" : "#333333"
+                                }
+                                
+                                Text { text: "减速:"; font.pixelSize: 11; color: "#666666" }
+                                Text { 
+                                    text: infoRow.currentPoint ? (infoRow.currentPoint.isRetard ? "是" : "否") : "---"
+                                    font.pixelSize: 11
+                                    color: infoRow.currentPoint && infoRow.currentPoint.isRetard ? "#FF9800" : "#333333"
+                                }
+                                
+                                Text { text: "停止:"; font.pixelSize: 11; color: "#666666" }
+                                Text { 
+                                    text: infoRow.currentPoint ? (infoRow.currentPoint.isStop ? "是" : "否") : "---"
+                                    font.pixelSize: 11
+                                    color: infoRow.currentPoint && infoRow.currentPoint.isStop ? "#FF5722" : "#333333"
+                                }
+                                
+                                Text { text: "快速停止:"; font.pixelSize: 11; color: "#666666" }
+                                Text { 
+                                    text: infoRow.currentPoint ? (infoRow.currentPoint.isQuickStop ? "是" : "否") : "---"
+                                    font.pixelSize: 11
+                                    color: infoRow.currentPoint && infoRow.currentPoint.isQuickStop ? "#F44336" : "#333333"
+                                }
+                                
+                                Text { text: "紧急停止:"; font.pixelSize: 11; color: "#666666" }
+                                Text { 
+                                    text: infoRow.currentPoint ? (infoRow.currentPoint.isEmergencyStop ? "是" : "否") : "---"
+                                    font.pixelSize: 11
+                                    color: infoRow.currentPoint && infoRow.currentPoint.isEmergencyStop ? "#D32F2F" : "#333333"
+                                }
+                                
+                                Text { text: "停止距离:"; font.pixelSize: 11; color: "#666666" }
+                                Text { 
+                                    text: infoRow.currentPoint ? (infoRow.currentPoint.distance ? infoRow.currentPoint.distance.toFixed(0) : "---") : "---"
+                                    font.pixelSize: 11
+                                    color: "#333333"
+                                }
+                            }
+                        }
+                        
+                        // 二维码信息
+                        Column {
+                            width: parent.width
+                            spacing: 4
+                            
+                            Text {
+                                text: "【二维码信息】"
+                                font.bold: true
+                                font.pixelSize: 13
+                                color: "#333333"
+                            }
+                            
+                            Text {
+                                text: infoRow.currentPoint && infoRow.currentPoint.barcode ? ("二维码: " + infoRow.currentPoint.barcode) : "二维码: 无"
+                                font.pixelSize: 11
+                                color: infoRow.currentPoint && infoRow.currentPoint.barcode ? "#2196F3" : "#666666"
+                            }
+                        }
+                    }
+                    
+                    // 右列：左轮数据、右轮数据
+                    Column {
+                        width: (parent.width - parent.spacing) / 2
+                        spacing: 8
+                        
+                        // 左轮数据
+                        Column {
+                            width: parent.width
+                            spacing: 4
+                            
+                            Text {
+                                text: "【左轮数据】"
+                                font.bold: true
+                                font.pixelSize: 13
+                                color: "#333333"
+                            }
+                            
+                            Grid {
+                                columns: 2
+                                columnSpacing: 20
+                                rowSpacing: 4
+                                width: parent.width
+                                
+                                Text { text: "设定速度:"; font.pixelSize: 11; color: "#666666" }
+                                Text { 
+                                    text: infoRow.currentPoint && infoRow.currentPoint.leftWheel ? infoRow.currentPoint.leftWheel.setSpeed.toFixed(2) : "---"
+                                    font.pixelSize: 11
+                                    color: "#333333"
+                                }
+                                
+                                Text { text: "测量速度:"; font.pixelSize: 11; color: "#666666" }
+                                Text { 
+                                    text: infoRow.currentPoint && infoRow.currentPoint.leftWheel ? infoRow.currentPoint.leftWheel.measuredSpeed.toFixed(2) : "---"
+                                    font.pixelSize: 11
+                                    color: "#333333"
+                                }
+                                
+                                Text { text: "里程:"; font.pixelSize: 11; color: "#666666" }
+                                Text { 
+                                    text: infoRow.currentPoint && infoRow.currentPoint.leftWheel ? infoRow.currentPoint.leftWheel.mileage.toFixed(2) : "---"
+                                    font.pixelSize: 11
+                                    color: "#333333"
+                                }
+                            }
+                        }
+                        
+                        // 右轮数据
+                        Column {
+                            width: parent.width
+                            spacing: 4
+                            
+                            Text {
+                                text: "【右轮数据】"
+                                font.bold: true
+                                font.pixelSize: 13
+                                color: "#333333"
+                            }
+                            
+                            Grid {
+                                columns: 2
+                                columnSpacing: 20
+                                rowSpacing: 4
+                                width: parent.width
+                                
+                                Text { text: "设定速度:"; font.pixelSize: 11; color: "#666666" }
+                                Text { 
+                                    text: infoRow.currentPoint && infoRow.currentPoint.rightWheel ? infoRow.currentPoint.rightWheel.setSpeed.toFixed(2) : "---"
+                                    font.pixelSize: 11
+                                    color: "#333333"
+                                }
+                                
+                                Text { text: "测量速度:"; font.pixelSize: 11; color: "#666666" }
+                                Text { 
+                                    text: infoRow.currentPoint && infoRow.currentPoint.rightWheel ? infoRow.currentPoint.rightWheel.measuredSpeed.toFixed(2) : "---"
+                                    font.pixelSize: 11
+                                    color: "#333333"
+                                }
+                                
+                                Text { text: "里程:"; font.pixelSize: 11; color: "#666666" }
+                                Text { 
+                                    text: infoRow.currentPoint && infoRow.currentPoint.rightWheel ? infoRow.currentPoint.rightWheel.mileage.toFixed(2) : "---"
+                                    font.pixelSize: 11
+                                    color: "#333333"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
 
        
@@ -1096,43 +1440,59 @@ Rectangle {
     // 预计算轨迹缓存
     function buildTrackCache() {
         trackRaw = mapDataManager.getVehicleTrack()
-        trackScreen = []
-        trackAngles = []
-        trackOutOfSafe = []
-        trackTimestamps = []
-        leftWheelSetSpeed = []
-        leftWheelMeasuredSpeed = []
-        leftWheelMileage = []
-        rightWheelSetSpeed = []
-        rightWheelMeasuredSpeed = []
-        rightWheelMileage = []
+        var newTrackScreen = []
+        var newTrackAngles = []
+        var newTrackOutOfSafe = []
+        var newTrackTimestamps = []
+        var newTrackIsAutoDriving = []
+        var newLeftWheelSetSpeed = []
+        var newLeftWheelMeasuredSpeed = []
+        var newLeftWheelMileage = []
+        var newRightWheelSetSpeed = []
+        var newRightWheelMeasuredSpeed = []
+        var newRightWheelMileage = []
         
         for (var i = 0; i < trackRaw.length; i++) {
             var p = mapDataManager.mapToScene(Qt.point(trackRaw[i].x, trackRaw[i].y), Qt.rect(0,0,mapViewer.width,mapViewer.height), 1.0)
-            trackScreen.push(Qt.point(p.x, p.y))
-            trackAngles.push(trackRaw[i].angle || 0)
-            trackOutOfSafe.push(!!trackRaw[i].outOfSafeArea)
-            trackTimestamps.push(trackRaw[i].timestamp || (i>0?trackTimestamps[i-1]+40:0))
+            newTrackScreen.push(Qt.point(p.x, p.y))
+            newTrackAngles.push(trackRaw[i].angle || 0)
+            newTrackOutOfSafe.push(!!trackRaw[i].outOfSafeArea)
+            newTrackTimestamps.push(trackRaw[i].timestamp || (i>0?newTrackTimestamps[i-1]+40:0))
+            newTrackIsAutoDriving.push(trackRaw[i].isAutoDriving)
             
             // 提取车轮数据
-            leftWheelSetSpeed.push(trackRaw[i].leftWheel ? (trackRaw[i].leftWheel.setSpeed || 0) : 0)
-            leftWheelMeasuredSpeed.push(trackRaw[i].leftWheel ? (trackRaw[i].leftWheel.measuredSpeed || 0) : 0)
-            leftWheelMileage.push(trackRaw[i].leftWheel ? (trackRaw[i].leftWheel.mileage || 0) : 0)
-            rightWheelSetSpeed.push(trackRaw[i].rightWheel ? (trackRaw[i].rightWheel.setSpeed || 0) : 0)
-            rightWheelMeasuredSpeed.push(trackRaw[i].rightWheel ? (trackRaw[i].rightWheel.measuredSpeed || 0) : 0)
-            rightWheelMileage.push(trackRaw[i].rightWheel ? (trackRaw[i].rightWheel.mileage || 0) : 0)
+            newLeftWheelSetSpeed.push(trackRaw[i].leftWheel ? (trackRaw[i].leftWheel.setSpeed || 0) : 0)
+            newLeftWheelMeasuredSpeed.push(trackRaw[i].leftWheel ? (trackRaw[i].leftWheel.measuredSpeed || 0) : 0)
+            newLeftWheelMileage.push(trackRaw[i].leftWheel ? (trackRaw[i].leftWheel.mileage || 0) : 0)
+            newRightWheelSetSpeed.push(trackRaw[i].rightWheel ? (trackRaw[i].rightWheel.setSpeed || 0) : 0)
+            newRightWheelMeasuredSpeed.push(trackRaw[i].rightWheel ? (trackRaw[i].rightWheel.measuredSpeed || 0) : 0)
+            newRightWheelMileage.push(trackRaw[i].rightWheel ? (trackRaw[i].rightWheel.mileage || 0) : 0)
         }
+        
+        // 一次性赋值所有数组，确保 QML 能检测到变化并触发 Repeater 更新
+        trackScreen = newTrackScreen
+        trackAngles = newTrackAngles
+        trackOutOfSafe = newTrackOutOfSafe
+        trackTimestamps = newTrackTimestamps
+        trackIsAutoDriving = newTrackIsAutoDriving
+        leftWheelSetSpeed = newLeftWheelSetSpeed
+        leftWheelMeasuredSpeed = newLeftWheelMeasuredSpeed
+        leftWheelMileage = newLeftWheelMileage
+        rightWheelSetSpeed = newRightWheelSetSpeed
+        rightWheelMeasuredSpeed = newRightWheelMeasuredSpeed
+        rightWheelMileage = newRightWheelMileage
+        
+        console.log("buildTrackCache completed, trackScreen length:", trackScreen.length)
+        
         playIndex = 0
         isPlaying = false
         vehicleTrackShape.updatePartialPath(0, 0)
-        fullTrackPreviewShape.generateFullTrackPath() // 生成完整轨迹路径
     }
 
     function updateTrackVisual() {
         if (trackScreen.length === 0) { return }
         var startIdx = 0
         vehicleTrackShape.updatePartialPath(startIdx, playIndex)
-        fullTrackPreviewShape.generateFullTrackPath() // 更新完整轨迹预览路径
         // 触发当前车辆箭头重绘
         // 通过属性绑定已自动更新位置与颜色
         currentVehicle.visible = true

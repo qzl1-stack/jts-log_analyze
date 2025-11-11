@@ -337,7 +337,13 @@ QVariantMap MapDataManager::vehicleTrackPointToVariantMap(const VehicleTrackPoin
     result["y"] = point.position.y();
     result["angle"] = point.angle;
     result["outOfSafeArea"] = point.outOfSafeArea;
-    result["barcode"] = point.barcode;  // 添加条码字段
+    result["barcode"] = point.barcode; 
+    result["isAutoDriving"] = point.isAutoDriving;
+    result["isRetard"] = point.isRetard;
+    result["isStop"] = point.isStop;
+    result["isQuickStop"] = point.isQuickStop;
+    result["isEmergencyStop"] = point.isEmergencyStop;
+    result["distance"] = point.distance;
     
     // 左轮数据
     QVariantMap leftWheel;

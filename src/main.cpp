@@ -7,6 +7,8 @@
 #include <QQmlComponent>
 #include <QtQml>
 #include <QQuickItem>
+#include <QFileInfo>
+#include <QDateTime>
 #include "app_manager.h"
 #include <QDebug>
 #include "textfilehandler.h"
@@ -23,6 +25,21 @@ public:
     }
 };
 
+// 清理日志文件：如果文件超过指定大小限制，则清空文件
+void cleanupLogFile(const QString &logFilePath, qint64 maxSizeBytes = 10 * 1024 * 1024) {
+    QFileInfo fileInfo(logFilePath);
+    if (fileInfo.exists() && fileInfo.size() > maxSizeBytes) {
+        QFile logFile(logFilePath);
+        if (logFile.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+            QTextStream stream(&logFile);
+            stream << QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz") 
+                   << " [Info] 日志文件已清理（超过大小限制 " 
+                   << (maxSizeBytes / 1024 / 1024) << "MB）" << Qt::endl;
+            logFile.close();
+        }
+    }
+}
+
 void customMessageOutput(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 {
     // 确保日志目录存在
@@ -31,8 +48,12 @@ void customMessageOutput(QtMsgType type, const QMessageLogContext &context, cons
         logDir.mkpath(".");
     }
 
-    // 创建日志文件
+    // 创建日志文件路径
     QString logFilePath = logDir.filePath("app_log.txt");
+    
+    // 定期清理日志文件（如果超过10MB则清空）
+    cleanupLogFile(logFilePath, 10 * 1024 * 1024);  // 10MB
+    
     QFile logFile(logFilePath);
     
     if (logFile.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
@@ -41,24 +62,6 @@ void customMessageOutput(QtMsgType type, const QMessageLogContext &context, cons
         QString logString;
         QTextStream logStream(&logString);
         logStream << QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz") << " ";
-        // switch (type) {
-        // case QtDebugMsg:
-        //     logStream << "[Debug] ";
-        //     break;
-        // case QtInfoMsg:
-        //     logStream << "[Info] ";
-        //     break;
-        // case QtWarningMsg:
-        //     logStream << "[Warning] ";
-        //     break;
-        // case QtCriticalMsg:
-        //     logStream << "[Critical] ";
-        //     break;
-        // case QtFatalMsg:
-        //     logStream << "[Fatal] ";
-        //     break;
-        // }
-
         logStream << msg ;
         
         stream << logString << Qt::endl; // 写入到文件

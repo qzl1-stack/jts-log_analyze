@@ -89,8 +89,14 @@ struct VehicleTrackPoint {
     WheelData leftWheel;   // 左轮数据
     WheelData rightWheel;  // 右轮数据
     qint32 barcode;        // 条码
+    bool isAutoDriving;    // 是否自动驾驶
+    bool isRetard;
+    bool isStop;
+    bool isQuickStop;
+    bool isEmergencyStop;
+    qint32 distance;
     
-    VehicleTrackPoint() : timestamp(0), angle(0.0), outOfSafeArea(false), barcode(0) {}
+    VehicleTrackPoint() : timestamp(0), angle(0.0), outOfSafeArea(false), barcode(0), isAutoDriving(false), distance(0) {}
 };
 
 struct MapData {
