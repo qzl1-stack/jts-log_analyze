@@ -413,6 +413,45 @@ QPointF MapXmlParser::mapToScene(const QPointF& mapCoord, const QRectF& sceneRec
                    scaledY + offsetY + sceneRect.top());
 }
 
+QPointF MapXmlParser::sceneToMap(const QPointF& sceneCoord, const QRectF& sceneRect, double scale) const
+{
+    if (m_mapData.boundingRect.isEmpty()) {
+        return sceneCoord;
+    }
+
+    const QRectF& mapBounds = m_mapData.boundingRect;
+
+    double mapWidth = mapBounds.width();
+    double mapHeight = mapBounds.height();
+
+    double sceneWidth = sceneRect.width();
+    double sceneHeight = sceneRect.height();
+
+    double scaleX = sceneWidth / mapWidth;
+    double scaleY = sceneHeight / mapHeight;
+    double uniformScale = qMin(scaleX, scaleY) * scale;
+
+    double scaledMapWidth = mapWidth * uniformScale;
+    double scaledMapHeight = mapHeight * uniformScale;
+
+    double offsetX = (sceneWidth - scaledMapWidth) / 2.0 + sceneRect.left();
+    double offsetY = (sceneHeight - scaledMapHeight) / 2.0 + sceneRect.top();
+
+    // 把 sceneCoord 减去 offset 得到相对缩放后的scene坐标
+    double sx = sceneCoord.x() - offsetX;
+    double sy = sceneCoord.y() - offsetY;
+
+    // 反向缩放，得到地图坐标的归一化坐标
+    double relativeX = sx / uniformScale;
+    double relativeY = sy / uniformScale;
+
+    // Y轴翻转（对应 mapToScene 中 mapHeight - relativeY）
+    double mapX = relativeX + mapBounds.left();
+    double mapY = mapHeight - relativeY + mapBounds.top();
+
+    return QPointF(mapX, mapY);
+}
+
 QRectF MapXmlParser::calculateBoundingRect() const
 {
     if (m_mapData.segments.isEmpty()) {

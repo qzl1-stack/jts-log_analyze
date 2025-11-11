@@ -134,6 +134,7 @@ public:
     
     // 坐标转换相关
     QPointF mapToScene(const QPointF& mapCoord, const QRectF& sceneRect, double scale = 1.0) const;
+    QPointF sceneToMap(const QPointF& sceneCoord, const QRectF& sceneRect, double scale = 1.0) const;
     QRectF calculateBoundingRect() const;
 
 signals:

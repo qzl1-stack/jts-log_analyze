@@ -200,6 +200,14 @@ QPointF MapDataManager::mapToScene(const QPointF& mapCoord, const QRectF& sceneR
     return m_mapParser->mapToScene(mapCoord, sceneRect, scale);
 }
 
+QPointF MapDataManager::sceneToMap(const QPointF& sceneCoord, const QRectF& sceneRect, double scale) const
+{
+    if (!m_isLoaded) {
+        return sceneCoord;
+    }
+    return m_mapParser->sceneToMap(sceneCoord, sceneRect, scale);
+}
+
 QRectF MapDataManager::getOptimalViewRect(const QRectF& viewSize) const
 {
     if (!m_isLoaded) {

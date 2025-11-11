@@ -14,33 +14,33 @@ Rectangle {
     property bool isDragging: false
     property point lastMousePos: Qt.point(0, 0)
     // 回放相关属性
-    property var trackRaw: []                 // 原始车辆轨迹数据(QVariantMap数组)
-    property var trackScreen: []              // 预计算的屏幕点(Qt.point)
-    property var trackAngles: []              // 角度(度)
-    property var trackOutOfSafe: []           // 是否越界
-    property var trackTimestamps: []          // 时间戳(ms)
-    property var trackIsAutoDriving: []       // 是否自动驾驶模式
+    property var trackRaw: [] // 原始车辆轨迹数据(QVariantMap数组)
+    property var trackScreen: [] // 预计算的屏幕点(Qt.point)
+    property var trackAngles: [] // 角度(度)
+    property var trackOutOfSafe: [] // 是否越界
+    property var trackTimestamps: [] // 时间戳(ms)
+    property var trackIsAutoDriving: [] // 是否自动驾驶模式
     // 车轮数据
-    property var leftWheelSetSpeed: []        // 左轮设定速度
-    property var leftWheelMeasuredSpeed: []   // 左轮测量速度
-    property var leftWheelMileage: []         // 左轮里程
-    property var rightWheelSetSpeed: []       // 右轮设定速度
-    property var rightWheelMeasuredSpeed: []  // 右轮测量速度
-    property var rightWheelMileage: []        // 右轮里程
-    
-    property int playIndex: 0                 // 当前帧索引
-    property bool isPlaying: false            // 是否正在播放
-    property real speedFactor: 1.0            // 播放倍速
-    
+    property var leftWheelSetSpeed: [] // 左轮设定速度
+    property var leftWheelMeasuredSpeed: [] // 左轮测量速度
+    property var leftWheelMileage: [] // 左轮里程
+    property var rightWheelSetSpeed: [] // 右轮设定速度
+    property var rightWheelMeasuredSpeed: [] // 右轮测量速度
+    property var rightWheelMileage: [] // 右轮里程
+
+    property int playIndex: 0 // 当前帧索引
+    property bool isPlaying: false // 是否正在播放
+    property real speedFactor: 1.0 // 播放倍速
+
     // 自动跟踪属性
-    property bool autoFollowVehicle: false    // 是否开启自动跟踪
-    property real autoFollowZoom: 100.0       // 自动跟踪时的缩放倍数
-    
+    property bool autoFollowVehicle: false // 是否开启自动跟踪
+    property real autoFollowZoom: 100.0 // 自动跟踪时的缩放倍数
+
     // 图表缩放属性
-    property real chartScaleX: 1.0             // 图表X轴缩放因子
-    property real chartScaleY: 1.0             // 图表Y轴缩放因子
-    property real minChartScale: 0.5           // 最小缩放倍数
-    property real maxChartScale: 10.0           // 最大缩放倍数
+    property real chartScaleX: 1.0 // 图表X轴缩放因子
+    property real chartScaleY: 1.0 // 图表Y轴缩放因子
+    property real minChartScale: 0.5 // 最小缩放倍数
+    property real maxChartScale: 10.0 // 最大缩放倍数
     // 单图双轴：当前轮与分别的Y轴缩放
     property string currentWheel: "left"
     property real speedScaleY: 1.0
@@ -50,24 +50,23 @@ Rectangle {
     property real mileageCenterValue: NaN
     property var speedAxisCache: ({ min: 0, max: 1, span: 1 })
     property var mileageAxisCache: ({ min: 0, max: 1, span: 1 })
-    
+
     // 条码相关数据
-    property var barcodeData: []              // 存储二维码数据
-    property var barcodeTimestamps: []       // 存储二维码时间戳
-    
+    property var barcodeData: [] // 存储二维码数据
+    property var barcodeTimestamps: [] // 存储二维码时间戳
+
     // 监听playIndex变化，更新图表
     onPlayIndexChanged: {
         if (mapDataManager.vehicleTrackCount > 0 && !chartPanel.collapsed) {
             if (wheelChart) wheelChart.requestPaint()
         }
-        
+
         // 自动跟踪小车：始终将其保持在视角中央
         if (autoFollowVehicle && trackScreen.length > 0 && playIndex >= 0 && playIndex < trackScreen.length) {
             updateVehicleTracking()
         }
     }
-    
-    
+
     onChartScaleYChanged: {
         if (mapDataManager.vehicleTrackCount > 0) {
             if (wheelChart) wheelChart.requestPaint()
@@ -75,15 +74,15 @@ Rectangle {
     }
     onSpeedScaleYChanged: { if (wheelChart) wheelChart.requestPaint() }
     onMileageScaleYChanged: { if (wheelChart) wheelChart.requestPaint() }
-    property int trailLength: -1             // 尾迹长度(-1表示全路径)
-    property int minFrameInterval: 1         // 最小帧间隔(ms)
-    property int maxFrameInterval: 200        // 最大帧间隔(ms) - 已弃用，为了向后兼容保留
+    property int trailLength: -1 // 尾迹长度(-1表示全路径)
+    property int minFrameInterval: 1 // 最小帧间隔(ms)
+    property int maxFrameInterval: 200 // 最大帧间隔(ms) - 已弃用，为了向后兼容保留
     property color normalColor: "#4CAF50"
     property color dangerColor: '#f41515'
     // 标记/标签显示参数（LOD）
-    property int markerBaseSize: 8                 // 标记点的基准像素大小
-    property int markerMinSize: 4                  // 缩小时的最小像素
-    property int markerMaxSize: 12                 // 放大时的最大像素
+    property int markerBaseSize: 8 // 标记点的基准像素大小
+    property int markerMinSize: 4 // 缩小时的最小像素
+    property int markerMaxSize: 12 // 放大时的最大像素
     // 根据缩放分级抽稀标签：缩放越小，步进越大（越稀疏）
     function _labelStep() {
         var z = zoomLevel;
@@ -96,11 +95,11 @@ Rectangle {
         if (z <= 3.0) return 3;
         return 1;
     }
-    
+
     color: '#ffffff'
     clip: true
     focus: true
-    
+
     // 快捷键处理 - 改进版本，支持焦点链传递
     Keys.onPressed: function(event) {
         // Ctrl+Z: 适配视图
@@ -110,7 +109,7 @@ Rectangle {
             event.accepted = true
             return
         }
-        
+
         // 左方向键：上帧
         if (event.key === Qt.Key_Left) {
             console.log("快捷键 左方向键 触发 - 上帧")
@@ -118,7 +117,7 @@ Rectangle {
             event.accepted = true
             return
         }
-        
+
         // 右方向键：下帧
         if (event.key === Qt.Key_Right) {
             console.log("快捷键 右方向键 触发 - 下帧")
@@ -127,7 +126,7 @@ Rectangle {
             return
         }
     }
-    
+
     // 错误提示文本
     Text {
         id: errorText
@@ -140,7 +139,7 @@ Rectangle {
         width: parent.width * 0.8
         horizontalAlignment: Text.AlignHCenter
     }
-    
+
     // 加载指示器
     BusyIndicator {
         id: loadingIndicator
@@ -148,12 +147,12 @@ Rectangle {
         running: !mapDataManager.isLoaded && !errorText.visible
         visible: running
     }
-    
+
     // 地图渲染区域
     Item {
         id: mapContainer
         anchors.fill: parent
-        
+
         transform: [
             Scale {
                 id: scaleTransform
@@ -168,7 +167,82 @@ Rectangle {
                 y: mapViewer.panOffset.y
             }
         ]
-        
+
+        Item {
+            id: gridLayer
+            anchors.fill: parent
+            z: 0.7
+            visible: true
+
+            property int gridPxStep: 80 // 每隔多少像素一根线
+
+            // 横线
+            Repeater {
+                id: hLineRepeater
+                model: Math.ceil(mapViewer.height / gridLayer.gridPxStep)
+                delegate: Shape {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    y: index * gridLayer.gridPxStep
+                    z: 1
+                    ShapePath {
+                        strokeWidth: 1
+                        strokeColor: "#d3d3d3"
+                        fillColor: "transparent"
+                        startX: 0; startY: 0
+                        PathLine { x: parent.width; y: 0 }
+                    }
+                }
+                // 坐标文本
+                Text {
+                    x: 4
+                    y: index * gridLayer.gridPxStep + 2
+                    font.pixelSize: 14
+                    color: "#999"
+                    text: {
+                        var mapY = mapDataManager.sceneToMap(
+                        Qt.point(0, index * gridLayer.gridPxStep),
+                        Qt.rect(0,0,mapViewer.width,mapViewer.height),
+                        mapViewer.zoomLevel).y;
+                        Math.round(mapY)
+                    }
+                }
+            }
+
+            // 纵线
+            Repeater {
+                id: vLineRepeater
+                model: Math.ceil(mapViewer.width / gridLayer.gridPxStep)
+                delegate: Shape {
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    x: index * gridLayer.gridPxStep
+                    z: 1
+                    ShapePath {
+                        strokeWidth: 1
+                        strokeColor: "#d3d3d3"
+                        fillColor: "transparent"
+                        startX: 0; startY: 0
+                        PathLine { x: 0; y: parent.height }
+                    }
+                }
+                // 坐标文本
+                Text {
+                    x: index * gridLayer.gridPxStep + 2
+                    y: 14
+                    font.pixelSize: 14
+                    color: "#999"
+                    text: {
+                        var mapX = mapDataManager.sceneToMap(
+                        Qt.point(index * gridLayer.gridPxStep, 0),
+                        Qt.rect(0,0,mapViewer.width,mapViewer.height),
+                        mapViewer.zoomLevel).x;
+                        Math.round(mapX)
+                    }
+                }
+            }
+        }
+
         // 主要地图形状
         Shape {
             id: mapShape
@@ -178,18 +252,18 @@ Rectangle {
             layer.samples: 8
             layer.smooth: true
             z: 1
-            
+
             // 保留一个透明的占位路径，便于清理时保留至少一个子对象
             ShapePath {
                 id: mainPath
                 strokeColor: "#2196F3"
-                strokeWidth: Math.max(0.005, 2 / mapViewer.zoomLevel)  // 逆向缩放保持恒定宽度
+                strokeWidth: Math.max(0.005, 2 / mapViewer.zoomLevel) // 逆向缩放保持恒定宽度
                 fillColor: "transparent"
                 capStyle: ShapePath.RoundCap
                 joinStyle: ShapePath.RoundJoin
                 PathSvg { id: svgPath; path: "" }
             }
-            
+
             // 辅助：判断两点是否近似相等
             function _near(p, q) {
                 var dx = p.x - q.x; var dy = p.y - q.y;
@@ -216,7 +290,7 @@ Rectangle {
                 }
                 return out;
             }
-            
+
             // 动态创建所有段的路径
             function createPaths() {
                 console.log("createPaths called, mapDataManager:", mapDataManager);
@@ -229,7 +303,7 @@ Rectangle {
                     Qt.callLater(function(){ mapShape.createPaths(); });
                     return;
                 }
-                
+
                 var segments = mapDataManager.getSegmentPaths();
                 console.log("segments count:", segments ? segments.length : "null");
                 if (!segments || segments.length === 0) {
@@ -237,7 +311,7 @@ Rectangle {
                     svgPath.path = "";
                     return;
                 }
-                
+
                 var d = "";
                 for (var j = 0; j < segments.length; j++) {
                     var segmentData = segments[j];
@@ -250,8 +324,8 @@ Rectangle {
                         var part = parts[i];
                         if (part.type === "Point") {
                             var p = mapDataManager.mapToScene(
-                                Qt.point(part.x, part.y),
-                                Qt.rect(0, 0, mapViewer.width, mapViewer.height), 1.0);
+                                        Qt.point(part.x, part.y),
+                                        Qt.rect(0, 0, mapViewer.width, mapViewer.height), 1.0);
                             if (!started) {
                                 d += "M " + p.x + " " + p.y + " ";
                                 started = true;
@@ -264,8 +338,8 @@ Rectangle {
                             var pts = [];
                             for (var t = 0; t < part.controlPoints.length; t++) {
                                 var sp = mapDataManager.mapToScene(
-                                    Qt.point(part.controlPoints[t].x, part.controlPoints[t].y),
-                                    Qt.rect(0,0,mapViewer.width,mapViewer.height), 1.0);
+                                            Qt.point(part.controlPoints[t].x, part.controlPoints[t].y),
+                                            Qt.rect(0,0,mapViewer.width,mapViewer.height), 1.0);
                                 pts.push(sp);
                             }
                             if (started && pts.length > 0 && !_near(pts[0], lastScreen)) {
@@ -288,27 +362,26 @@ Rectangle {
                 svgPath.path = d;
                 console.log("svg total length:", d.length, " sample:", d.substring(0, 80));
             }
-            
+
         }
-        
-        
+
         // 位置标记显示
         Repeater {
             id: markerRepeater
             model: mapDataManager.isLoaded ? mapDataManager.getPositionMarkers() : []
-            
+
             delegate: Item {
                 property var markerData: modelData
                 property point scenePos: mapDataManager.mapToScene(
-                    Qt.point(markerData.x, markerData.y),
-                    Qt.rect(0, 0, mapViewer.width, mapViewer.height),
-                    1.0
-                )
-                
+                                             Qt.point(markerData.x, markerData.y),
+                                             Qt.rect(0, 0, mapViewer.width, mapViewer.height),
+                                             1.0
+                                             )
+
                 x: scenePos.x
                 y: scenePos.y
-                z: 100  // 提高z值确保不被其他元素遮挡
-                
+                z: 100 // 提高z值确保不被其他元素遮挡
+
                 // 位置标记方形（二维码）
                 Rectangle {
                     id: markerDot
@@ -316,7 +389,7 @@ Rectangle {
                     // 保持屏幕像素大小稳定：使用逆缩放
                     width: Math.min(mapViewer.markerMaxSize, Math.max(mapViewer.markerMinSize, mapViewer.markerBaseSize))
                     height: width
-                    radius: 2  // 小圆角，保持方形外观
+                    radius: 2 // 小圆角，保持方形外观
                     color: mapViewer.zoomLevel < 0.9 ? "transparent" : "#804CAF50" // 低倍缩放时用空心框，放大后半透明实心
                     border.color: "#2E7D32"
                     border.width: mapViewer.zoomLevel < 0.9 ? 1 : 2
@@ -329,7 +402,7 @@ Rectangle {
                         origin.y: markerDot.height/2
                     }
                 }
-                
+
                 // 标记ID文本
                 Rectangle {
                     anchors.left: parent.right
@@ -348,7 +421,7 @@ Rectangle {
                         origin.x: 0
                         origin.y: (labelText.height + 4)/2
                     }
-                    
+
                     Text {
                         id: labelText
                         anchors.centerIn: parent
@@ -362,7 +435,7 @@ Rectangle {
                 }
             }
         }
-        
+
         // 车辆轨迹线显示
         Shape {
             id: vehicleTrackShape
@@ -373,12 +446,12 @@ Rectangle {
             layer.smooth: true
             z: 3
             visible: mapDataManager.vehicleTrackCount > 0
-            
+
             // 安全段（正常）
             ShapePath {
                 id: trackPathSafe
-                strokeColor: "#2E7D32"   
-                strokeWidth: Math.max(0.005, 1 / mapViewer.zoomLevel)  // 逆向缩放保持恒定宽度
+                strokeColor: "#2E7D32"
+                strokeWidth: Math.max(0.005, 1 / mapViewer.zoomLevel) // 逆向缩放保持恒定宽度
                 fillColor: "transparent"
                 capStyle: ShapePath.RoundCap
                 joinStyle: ShapePath.RoundJoin
@@ -387,14 +460,14 @@ Rectangle {
             // 危险段（越界）
             ShapePath {
                 id: trackPathDanger
-                strokeColor: "#FF3B30"   // 红色
-                strokeWidth: Math.max(0.005, 1 / mapViewer.zoomLevel)  // 逆向缩放保持恒定宽度
+                strokeColor: "#FF3B30" // 红色
+                strokeWidth: Math.max(0.005, 1 / mapViewer.zoomLevel) // 逆向缩放保持恒定宽度
                 fillColor: "transparent"
                 capStyle: ShapePath.RoundCap
                 joinStyle: ShapePath.RoundJoin
                 PathSvg { id: trackSvgDanger; path: "" }
             }
-            
+
             // 根据索引区间生成局部轨迹(用于动态回放)
             function updatePartialPath(startIdx, endIdx) {
                 if (!mapViewer.trackScreen || mapViewer.trackScreen.length === 0) {
@@ -427,13 +500,12 @@ Rectangle {
                 trackSvgDanger.path = dDanger;
             }
         }
-        
 
         // 轨迹点标记显示（所有轨迹点的圆形标记）
         Repeater {
             id: trackPointMarkers
             model: mapViewer.trackScreen && mapViewer.trackScreen.length > 0 ? mapViewer.trackScreen.length : 0
-            
+
             delegate: Item {
                 readonly property point trackPoint: (mapViewer.trackScreen && index < mapViewer.trackScreen.length) ? mapViewer.trackScreen[index] : Qt.point(0, 0)
                 readonly property bool isOutOfSafe: (mapViewer.trackOutOfSafe && index < mapViewer.trackOutOfSafe.length) ? !!mapViewer.trackOutOfSafe[index] : false
@@ -445,28 +517,28 @@ Rectangle {
 
                 // 只有当小车经过该点（索引小于等于当前播放索引）时才显示
                 readonly property bool shouldShow: mapViewer.playIndex >= 0 && index <= mapViewer.playIndex
-                
+
                 // 根据 isOutOfSafe 和 hasBarcode 计算颜色
                 // 优先级：越界+二维码 > 越界 > 二维码 > 正常
                 readonly property color dotColor: {
                     if (mapViewer.zoomLevel < 0.9) return "transparent"
-                    if (isOutOfSafe && hasBarcode) return "#FF6B35"  // 橙色：越界且有二维码
-                    if (isOutOfSafe) return "#FFCC00"  // 黄色：越界
-                    if (hasBarcode) return '#f0c369'  // 黄色：有二维码
-                    return "#4CAF50"  // 绿色：正常
+                    if (isOutOfSafe && hasBarcode) return "#FF6B35" // 橙色：越界且有二维码
+                    if (isOutOfSafe) return "#FFCC00" // 黄色：越界
+                    if (hasBarcode) return '#f0c369' // 黄色：有二维码
+                    return "#4CAF50" // 绿色：正常
                 }
                 readonly property color borderColor: {
-                    if (isOutOfSafe && hasBarcode) return "#FF3B30"  // 红色边框：越界且有二维码
-                    if (isOutOfSafe) return "#FF3B30"  // 红色边框：越界
-                    if (hasBarcode) return "#c29438"  // 深黄色边框：有二维码
-                    return "#2E7D32"  // 绿色边框：正常
+                    if (isOutOfSafe && hasBarcode) return "#FF3B30" // 红色边框：越界且有二维码
+                    if (isOutOfSafe) return "#FF3B30" // 红色边框：越界
+                    if (hasBarcode) return "#c29438" // 深黄色边框：有二维码
+                    return "#2E7D32" // 绿色边框：正常
                 }
-                
+
                 x: trackPoint.x
                 y: trackPoint.y
                 z: 100
                 visible: shouldShow
-                
+
                 // 轨迹点圆形标记（外层大圈）
                 Rectangle {
                     id: trackPointDot
@@ -475,11 +547,11 @@ Rectangle {
                     width: Math.min(mapViewer.markerMaxSize, Math.max(mapViewer.markerMinSize, mapViewer.markerBaseSize))
                     height: width
                     radius: width/2
-                    color: dotColor
+                            color: dotColor
                     border.color: borderColor
                     border.width: mapViewer.zoomLevel < 0.9 ? 1 : 1.5
                     opacity: 0.85
-                    
+
                     transform: Scale {
                         // 抵消整体地图缩放，使标记点大小不随缩放变化
                         xScale: 1.0 / scaleTransform.xScale
@@ -488,10 +560,10 @@ Rectangle {
                         origin.y: trackPointDot.height/2
                     }
                 }
-                
+
             }
         }
-        
+
         // 当前车辆位置和状态显示（单个动态点）
         Item {
             id: currentVehicle
@@ -541,17 +613,17 @@ Rectangle {
                 onPaint: {
                     var ctx = getContext("2d");
                     ctx.clearRect(0, 0, width, height);
-                    
+
                     var isOutOfSafe = mapViewer.trackOutOfSafe[mapViewer.playIndex];
                     var mainColor = isOutOfSafe ? 'rgba(255, 59, 48, 0.5)' : 'rgba(33, 150, 243, 0.5)';
                     var accentColor = isOutOfSafe ? 'rgba(255, 59, 48, 0.8)' : 'rgba(33, 150, 243, 0.8)';
                     var lightColor = isOutOfSafe ? 'rgba(255, 59, 48, 0.3)' : 'rgba(33, 150, 243, 0.3)';
-                    
+
                     var w = width;
                     var h = height;
                     var cx = w / 2;
                     var cy = h / 2;
-                    
+
                     // === AGV俯视图设计 ===
                     // 1. 车身主体（圆润矩形）
                     ctx.fillStyle = lightColor;
@@ -562,7 +634,7 @@ Rectangle {
                     var rectY = cy - h * 0.40;
                     var rectW = w * 0.50;
                     var rectH = h * 0.55;
-                    
+
                     ctx.beginPath();
                     ctx.moveTo(rectX + radius, rectY);
                     ctx.lineTo(rectX + rectW - radius, rectY);
@@ -576,8 +648,7 @@ Rectangle {
                     ctx.closePath();
                     ctx.fill();
                     ctx.stroke();
-                    
-                    
+
                     // 3. 车身中心线（分隔线，增加立体感）
                     ctx.strokeStyle = mainColor;
                     ctx.lineWidth = 0.6;
@@ -587,25 +658,24 @@ Rectangle {
                     ctx.lineTo(cx, cy + h*0.15);
                     ctx.stroke();
                     ctx.setLineDash([]);
-                    
+
                     // 4. 左轮（矩形轮胎）
                     ctx.fillStyle = mainColor;
                     ctx.strokeStyle = accentColor;
                     ctx.lineWidth = 0.8;
                     ctx.fillRect(cx - w*0.35, cy - h*0.25, w*0.08, h*0.28);
                     ctx.strokeRect(cx - w*0.35, cy - h*0.25, w*0.08, h*0.28);
-                    
+
                     // 5. 右轮（矩形轮胎）
                     ctx.fillRect(cx + w*0.27, cy - h*0.25, w*0.08, h*0.28);
                     ctx.strokeRect(cx + w*0.27, cy - h*0.25, w*0.08, h*0.28);
-                    
-                    
+
                     // 7. 中心位置点
                     ctx.fillStyle = accentColor;
                     ctx.beginPath();
                     ctx.arc(cx, cy, 1.5, 0, Math.PI * 2);
                     ctx.fill();
-                  
+
                 }
             }
 
@@ -617,7 +687,7 @@ Rectangle {
                 anchors.verticalCenter: parent.verticalCenter
                 width: barcodeText.width + 12
                 height: barcodeText.height + 8
-                
+
                 // 判断当前时间戳是否扫过二维码
                 readonly property int currentBarcode: {
                     if (mapViewer.playIndex < 0 || mapViewer.playIndex >= mapViewer.trackRaw.length) {
@@ -631,19 +701,19 @@ Rectangle {
                     return 0;
                 }
                 visible: currentBarcode !== 0
-                
-                color: "#333333"  // 深色背景
-                border.color: "#2196F3"  // 蓝色边框
+
+                color: "#333333" // 深色背景
+                border.color: "#2196F3" // 蓝色边框
                 border.width: 1
                 radius: 4
-                
+
                 transform: Scale {
                     xScale: 1.0 / scaleTransform.xScale
                     yScale: 1.0 / scaleTransform.yScale
                     origin.x: 0
                     origin.y: barcodeNotification.height / 2
                 }
-                
+
                 Text {
                     id: barcodeText
                     anchors.centerIn: parent
@@ -656,7 +726,7 @@ Rectangle {
 
         }
     }
-    
+
     // 位置标记坐标标签（全局，在mapContainer外）
     Rectangle {
         id: markerCoordLabel
@@ -668,10 +738,10 @@ Rectangle {
         radius: 4
         opacity: 0.95
         visible: false
-        z: 9999  // 最高z值，确保显示在最上面
-        
+        z: 9999 // 最高z值，确保显示在最上面
+
         property string currentCoord: ""
-        
+
         Text {
             id: coordLabelText
             anchors.centerIn: parent
@@ -680,7 +750,7 @@ Rectangle {
             text: parent.currentCoord
         }
     }
-    
+
     // 播放定时器（逐帧调度）
     Timer {
         id: playTimer
@@ -689,18 +759,18 @@ Rectangle {
         interval: 30
         onTriggered: nextFrame()
     }
-    
+
     MouseArea {
         anchors.fill: parent
         acceptedButtons: Qt.LeftButton | Qt.RightButton
-        
+
         // 确保焦点回传给主容器，以便接收快捷键
         onClicked: mapViewer.focus = true
-        
+
         onPressed: function(mouse) {
             var centerX = mapViewer.width / 2
             var centerY = mapViewer.height / 2
-            
+
             // 先检测是否点击到任一 PositionMarker
             var markers = mapDataManager.getPositionMarkers()
             if (markers && markers.length > 0) {
@@ -725,7 +795,7 @@ Rectangle {
                     }
                 }
             }
-            
+
             // 检测是否点击到轨迹点（trackPointMarkers）
             // 从后往前检测，优先匹配最新的轨迹点（避免重叠时误选旧点）
             if (mapViewer.trackScreen && mapViewer.trackScreen.length > 0 && mapViewer.trackRaw && mapViewer.trackRaw.length > 0) {
@@ -754,35 +824,35 @@ Rectangle {
                     }
                 }
             }
-            
+
             // 未点中任何标记，则进入拖拽
             mapViewer.isDragging = true
             mapViewer.lastMousePos = Qt.point(mouse.x, mouse.y)
         }
-        
+
         onReleased: function(mouse) {
             mapViewer.isDragging = false
             markerCoordLabel.visible = false
         }
-        
+
         onPositionChanged: function(mouse) {
             if (mapViewer.isDragging && (mouse.buttons & Qt.LeftButton)) {
                 var deltaX = mouse.x - mapViewer.lastMousePos.x
                 var deltaY = mouse.y - mapViewer.lastMousePos.y
                 mapViewer.panOffset = Qt.point(
-                    mapViewer.panOffset.x + deltaX,
-                    mapViewer.panOffset.y + deltaY
-                )
+                            mapViewer.panOffset.x + deltaX,
+                            mapViewer.panOffset.y + deltaY
+                            )
                 mapViewer.lastMousePos = Qt.point(mouse.x, mouse.y)
             }
         }
-        
+
         onWheel: function(wheel) {
             var scaleFactor = wheel.angleDelta.y > 0 ? 1.1 : 0.9
             var oldZoom = mapViewer.zoomLevel
             var newZoom = Math.max(mapViewer.minZoom, Math.min(mapViewer.maxZoom, oldZoom * scaleFactor))
             if (newZoom === oldZoom) return
-            
+
             var centerX = mapViewer.width / 2
             var centerY = mapViewer.height / 2
             var dx = wheel.x - centerX
@@ -790,13 +860,13 @@ Rectangle {
             var zoomRatio = newZoom / oldZoom
             // 关键：T' = T + (1 - zoomRatio) * ((mouse-center) - T)
             mapViewer.panOffset = Qt.point(
-                mapViewer.panOffset.x + (1 - zoomRatio) * (dx - mapViewer.panOffset.x),
-                mapViewer.panOffset.y + (1 - zoomRatio) * (dy - mapViewer.panOffset.y)
-            )
+                        mapViewer.panOffset.x + (1 - zoomRatio) * (dx - mapViewer.panOffset.x),
+                        mapViewer.panOffset.y + (1 - zoomRatio) * (dy - mapViewer.panOffset.y)
+                        )
             mapViewer.zoomLevel = newZoom
         }
     }
-    
+
     // 播放控制面板
     Rectangle {
         id: playbackPanel
@@ -811,12 +881,12 @@ Rectangle {
         radius: 6
         opacity: 0.9
         visible: mapDataManager.vehicleTrackCount > 0
-        
+
         Column {
             id: playbackColumn
             anchors.centerIn: parent
             spacing: 8
-            
+
             // 时间显示区域
             Rectangle {
                 width: parent.width - 16
@@ -826,68 +896,68 @@ Rectangle {
                 border.width: 1
                 radius: 4
                 anchors.horizontalCenter: parent.horizontalCenter
-                
+
                 Column {
                     anchors.fill: parent
                     anchors.margins: 6
                     spacing: 2
-                    
+
                     Text {
                         text: "当前时间: " + formatTime(mapViewer.playIndex)
                         font.pixelSize: 10
                         color: "#333333"
                     }
-                
+
                 }
             }
-            
+
             // 播放、暂停、停止控制
             Row {
                 spacing: 6
                 anchors.horizontalCenter: parent.horizontalCenter
-                Button { 
+                Button {
                     text: "▶ 播放"
                     width: 60
                     height: 28
-                    onClicked: startPlayback() 
+                    onClicked: startPlayback()
                 }
-                Button { 
+                Button {
                     text: "⏸ 暂停"
                     width: 60
                     height: 28
-                    onClicked: pausePlayback() 
+                    onClicked: pausePlayback()
                 }
-                Button { 
+                Button {
                     text: "⏹ 停止"
                     width: 60
                     height: 28
-                    onClicked: stopPlayback() 
+                    onClicked: stopPlayback()
                 }
             }
-            
+
             // 上帧、下帧控制
             Row {
                 spacing: 6
                 anchors.horizontalCenter: parent.horizontalCenter
-                Button { 
+                Button {
                     text: "◀ 上帧"
                     width: 60
                     height: 28
-                    onClicked: stepBackward() 
+                    onClicked: stepBackward()
                 }
-                Button { 
+                Button {
                     text: "下帧 ▶"
                     width: 60
                     height: 28
-                    onClicked: stepForward() 
+                    onClicked: stepForward()
                 }
             }
-            
+
             // 倍速控制
             Row {
                 spacing: 6
                 anchors.horizontalCenter: parent.horizontalCenter
-                Text { 
+                Text {
                     text: "倍速："
                     font.pixelSize: 11
                     verticalAlignment: Text.AlignVCenter
@@ -901,9 +971,7 @@ Rectangle {
                     onActivated: mapViewer.speedFactor = parseFloat(currentText)
                 }
             }
-            
 
-            
             // 自动跟踪控制
             Button {
                 text: mapViewer.autoFollowVehicle ? "🎯 跟踪中" : "🎯 启用跟踪"
@@ -921,9 +989,7 @@ Rectangle {
             }
         }
     }
-    
 
-    
     Rectangle {
         id: statusRect
         anchors.bottom: parent.bottom
@@ -937,12 +1003,12 @@ Rectangle {
         radius: 4
         opacity: 0.9
         visible: mapDataManager.isLoaded
-        
+
         Text {
             id: statusText
             anchors.centerIn: parent
-            text: "段数: " + mapDataManager.segmentCount + 
-                  " | 点数: " + mapDataManager.pointCount + 
+            text: "段数: " + mapDataManager.segmentCount +
+                  " | 点数: " + mapDataManager.pointCount +
                   " | 轨迹点: " + mapDataManager.vehicleTrackCount +
                   " | 缩放: " + (mapViewer.zoomLevel * 100).toFixed(0) + "%"
             font.pixelSize: 10
@@ -961,7 +1027,7 @@ Rectangle {
         radius: 4
         opacity: 0.9
         visible: mapDataManager.isLoaded
-        
+
         Text {
             id: statusTextRight
             anchors.centerIn: parent
@@ -970,7 +1036,7 @@ Rectangle {
             color: "#666666"
         }
     }
-    
+
     // 车轮数据图表面板
     Rectangle {
         id: chartPanel
@@ -987,13 +1053,13 @@ Rectangle {
         opacity: 0.95
         visible: mapDataManager.vehicleTrackCount > 0
         z: 10
-        
+
         property bool collapsed: true
-        
+
         Behavior on width {
             NumberAnimation { duration: 300; easing.type: Easing.InOutQuad }
         }
-        
+
         // 折叠/展开按钮
         Button {
             anchors.left: parent.left
@@ -1004,7 +1070,7 @@ Rectangle {
             text: chartPanel.collapsed ? "◀" : "▶"
             onClicked: chartPanel.collapsed = !chartPanel.collapsed
         }
-        
+
         // 单图（左轮/右轮切换，双纵轴）
         Column {
             id: singleChartContainer
@@ -1017,19 +1083,19 @@ Rectangle {
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
                 spacing: 8
-                
+
                 Text {
                     text: (mapViewer.currentWheel === "left" ? "左轮" : "右轮") + " · 设定/测量/差速/里程"
                     font.bold: true
                     font.pixelSize: 14
                 }
-                
+
                 Rectangle {
                     width: modeText.width + 12
                     height: modeText.height + 6
                     color: (mapViewer.playIndex >= 0 && mapViewer.playIndex < mapViewer.trackIsAutoDriving.length && mapViewer.trackIsAutoDriving[mapViewer.playIndex]) ? "#4CAF50" : "#FF9800"
                     radius: 4
-                    
+
                     Text {
                         id: modeText
                         anchors.centerIn: parent
@@ -1146,10 +1212,10 @@ Rectangle {
                             var deltaV = s[2][idx]
                             var milV = s[3][idx]
                             return "时间: " + formatTime(idx) + "\n" +
-                                   "设定速度: " + setV.toFixed(2) + "\n" +
-                                   "测量速度: " + meaV.toFixed(2) + "\n" +
-                                   "差速: " + deltaV.toFixed(2) + "\n" +
-                                   "里程: " + milV.toFixed(2)
+                                    "设定速度: " + setV.toFixed(2) + "\n" +
+                                    "测量速度: " + meaV.toFixed(2) + "\n" +
+                                    "差速: " + deltaV.toFixed(2) + "\n" +
+                                    "里程: " + milV.toFixed(2)
                         }
                     }
                 }
@@ -1170,7 +1236,7 @@ Rectangle {
                 Button { text: mapViewer.currentWheel === "left" ? "左轮(当前)" : "左轮"; onClicked: { mapViewer.currentWheel = "left"; wheelChart.requestPaint() } }
                 Button { text: mapViewer.currentWheel === "right" ? "右轮(当前)" : "右轮"; onClicked: { mapViewer.currentWheel = "right"; wheelChart.requestPaint() } }
             }
-            
+
             // 车辆详细信息显示区域
             Rectangle {
                 width: parent.width - 20
@@ -1180,7 +1246,7 @@ Rectangle {
                 border.width: 1
                 radius: 4
                 anchors.horizontalCenter: parent.horizontalCenter
-                
+
                 Row {
                     id: infoRow
                     anchors.left: parent.left
@@ -1188,7 +1254,7 @@ Rectangle {
                     anchors.top: parent.top
                     anchors.margins: 10
                     spacing: 15
-                    
+
                     // 获取当前轨迹点数据
                     readonly property var currentPoint: {
                         if (mapViewer.playIndex >= 0 && mapViewer.playIndex < mapViewer.trackRaw.length) {
@@ -1196,134 +1262,134 @@ Rectangle {
                         }
                         return null
                     }
-                    
+
                     // 左列：基本信息、安全状态、二维码信息
                     Column {
                         width: (parent.width - parent.spacing) / 2
                         spacing: 8
-                        
+
                         // 基本信息
                         Column {
                             width: parent.width
                             spacing: 4
-                            
+
                             Text {
                                 text: "【基本信息】"
                                 font.bold: true
                                 font.pixelSize: 13
                                 color: "#333333"
                             }
-                            
+
                             Grid {
                                 columns: 2
                                 columnSpacing: 20
                                 rowSpacing: 4
                                 width: parent.width
-                                
+
                                 Text { text: "时间戳:"; font.pixelSize: 11; color: "#666666" }
-                                Text { 
+                                Text {
                                     text: infoRow.currentPoint ? formatTime(mapViewer.playIndex) : "---"
                                     font.pixelSize: 11
                                     color: "#333333"
                                 }
-                                
+
                                 Text { text: "X坐标:"; font.pixelSize: 11; color: "#666666" }
-                                Text { 
+                                Text {
                                     text: infoRow.currentPoint ? infoRow.currentPoint.x.toFixed(2) : "---"
                                     font.pixelSize: 11
                                     color: "#333333"
                                 }
-                                
+
                                 Text { text: "Y坐标:"; font.pixelSize: 11; color: "#666666" }
-                                Text { 
+                                Text {
                                     text: infoRow.currentPoint ? infoRow.currentPoint.y.toFixed(2) : "---"
                                     font.pixelSize: 11
                                     color: "#333333"
                                 }
-                                
+
                                 Text { text: "车头角度:"; font.pixelSize: 11; color: "#666666" }
-                                Text { 
+                                Text {
                                     text: infoRow.currentPoint ? (infoRow.currentPoint.angle ? infoRow.currentPoint.angle.toFixed(2) + "°" : "---") : "---"
                                     font.pixelSize: 11
                                     color: "#333333"
                                 }
                             }
                         }
-                        
+
                         // 安全状态
                         Column {
                             width: parent.width
                             spacing: 4
-                            
+
                             Text {
                                 text: "【安全状态】"
                                 font.bold: true
                                 font.pixelSize: 13
                                 color: "#333333"
                             }
-                            
+
                             Grid {
                                 columns: 2
                                 columnSpacing: 20
                                 rowSpacing: 4
                                 width: parent.width
-                                
+
                                 Text { text: "超出安全区:"; font.pixelSize: 11; color: "#666666" }
-                                Text { 
+                                Text {
                                     text: infoRow.currentPoint ? (infoRow.currentPoint.outOfSafeArea ? "是" : "否") : "---"
                                     font.pixelSize: 11
                                     color: infoRow.currentPoint && infoRow.currentPoint.outOfSafeArea ? "#FF3B30" : "#333333"
                                 }
-                                
+
                                 Text { text: "减速:"; font.pixelSize: 11; color: "#666666" }
-                                Text { 
+                                Text {
                                     text: infoRow.currentPoint ? (infoRow.currentPoint.isRetard ? "是" : "否") : "---"
                                     font.pixelSize: 11
                                     color: infoRow.currentPoint && infoRow.currentPoint.isRetard ? "#FF9800" : "#333333"
                                 }
-                                
+
                                 Text { text: "停止:"; font.pixelSize: 11; color: "#666666" }
-                                Text { 
+                                Text {
                                     text: infoRow.currentPoint ? (infoRow.currentPoint.isStop ? "是" : "否") : "---"
                                     font.pixelSize: 11
                                     color: infoRow.currentPoint && infoRow.currentPoint.isStop ? "#FF5722" : "#333333"
                                 }
-                                
+
                                 Text { text: "快速停止:"; font.pixelSize: 11; color: "#666666" }
-                                Text { 
+                                Text {
                                     text: infoRow.currentPoint ? (infoRow.currentPoint.isQuickStop ? "是" : "否") : "---"
                                     font.pixelSize: 11
                                     color: infoRow.currentPoint && infoRow.currentPoint.isQuickStop ? "#F44336" : "#333333"
                                 }
-                                
+
                                 Text { text: "紧急停止:"; font.pixelSize: 11; color: "#666666" }
-                                Text { 
+                                Text {
                                     text: infoRow.currentPoint ? (infoRow.currentPoint.isEmergencyStop ? "是" : "否") : "---"
                                     font.pixelSize: 11
                                     color: infoRow.currentPoint && infoRow.currentPoint.isEmergencyStop ? "#D32F2F" : "#333333"
                                 }
-                                
+
                                 Text { text: "停止距离:"; font.pixelSize: 11; color: "#666666" }
-                                Text { 
+                                Text {
                                     text: infoRow.currentPoint ? (infoRow.currentPoint.distance ? infoRow.currentPoint.distance.toFixed(0) : "---") : "---"
                                     font.pixelSize: 11
                                     color: "#333333"
                                 }
                             }
                         }
-                        
+
                         // 二维码信息
                         Column {
                             width: parent.width
                             spacing: 4
-                            
+
                             Text {
                                 text: "【二维码信息】"
                                 font.bold: true
                                 font.pixelSize: 13
                                 color: "#333333"
                             }
-                            
+
                             Text {
                                 text: infoRow.currentPoint && infoRow.currentPoint.barcode ? ("二维码: " + infoRow.currentPoint.barcode) : "二维码: 无"
                                 font.pixelSize: 11
@@ -1331,87 +1397,87 @@ Rectangle {
                             }
                         }
                     }
-                    
+
                     // 右列：左轮数据、右轮数据
                     Column {
                         width: (parent.width - parent.spacing) / 2
                         spacing: 8
-                        
+
                         // 左轮数据
                         Column {
                             width: parent.width
                             spacing: 4
-                            
+
                             Text {
                                 text: "【左轮数据】"
                                 font.bold: true
                                 font.pixelSize: 13
                                 color: "#333333"
                             }
-                            
+
                             Grid {
                                 columns: 2
                                 columnSpacing: 20
                                 rowSpacing: 4
                                 width: parent.width
-                                
+
                                 Text { text: "设定速度:"; font.pixelSize: 11; color: "#666666" }
-                                Text { 
+                                Text {
                                     text: infoRow.currentPoint && infoRow.currentPoint.leftWheel ? infoRow.currentPoint.leftWheel.setSpeed.toFixed(2) : "---"
                                     font.pixelSize: 11
                                     color: "#333333"
                                 }
-                                
+
                                 Text { text: "测量速度:"; font.pixelSize: 11; color: "#666666" }
-                                Text { 
+                                Text {
                                     text: infoRow.currentPoint && infoRow.currentPoint.leftWheel ? infoRow.currentPoint.leftWheel.measuredSpeed.toFixed(2) : "---"
                                     font.pixelSize: 11
                                     color: "#333333"
                                 }
-                                
+
                                 Text { text: "里程:"; font.pixelSize: 11; color: "#666666" }
-                                Text { 
+                                Text {
                                     text: infoRow.currentPoint && infoRow.currentPoint.leftWheel ? infoRow.currentPoint.leftWheel.mileage.toFixed(2) : "---"
                                     font.pixelSize: 11
                                     color: "#333333"
                                 }
                             }
                         }
-                        
+
                         // 右轮数据
                         Column {
                             width: parent.width
                             spacing: 4
-                            
+
                             Text {
                                 text: "【右轮数据】"
                                 font.bold: true
                                 font.pixelSize: 13
                                 color: "#333333"
                             }
-                            
+
                             Grid {
                                 columns: 2
                                 columnSpacing: 20
                                 rowSpacing: 4
                                 width: parent.width
-                                
+
                                 Text { text: "设定速度:"; font.pixelSize: 11; color: "#666666" }
-                                Text { 
+                                Text {
                                     text: infoRow.currentPoint && infoRow.currentPoint.rightWheel ? infoRow.currentPoint.rightWheel.setSpeed.toFixed(2) : "---"
                                     font.pixelSize: 11
                                     color: "#333333"
                                 }
-                                
+
                                 Text { text: "测量速度:"; font.pixelSize: 11; color: "#666666" }
-                                Text { 
+                                Text {
                                     text: infoRow.currentPoint && infoRow.currentPoint.rightWheel ? infoRow.currentPoint.rightWheel.measuredSpeed.toFixed(2) : "---"
                                     font.pixelSize: 11
                                     color: "#333333"
                                 }
-                                
+
                                 Text { text: "里程:"; font.pixelSize: 11; color: "#666666" }
-                                Text { 
+                                Text {
                                     text: infoRow.currentPoint && infoRow.currentPoint.rightWheel ? infoRow.currentPoint.rightWheel.mileage.toFixed(2) : "---"
                                     font.pixelSize: 11
                                     color: "#333333"
@@ -1423,15 +1489,13 @@ Rectangle {
             }
         }
 
-       
-        
     }
-    
+
     function loadMap() {
         errorText.visible = false
         mapDataManager.loadMapData()
     }
-    
+
     function loadVehicleTrack() {
         errorText.visible = false
         mapDataManager.loadVehicleTrack()
@@ -1451,7 +1515,7 @@ Rectangle {
         var newRightWheelSetSpeed = []
         var newRightWheelMeasuredSpeed = []
         var newRightWheelMileage = []
-        
+
         for (var i = 0; i < trackRaw.length; i++) {
             var p = mapDataManager.mapToScene(Qt.point(trackRaw[i].x, trackRaw[i].y), Qt.rect(0,0,mapViewer.width,mapViewer.height), 1.0)
             newTrackScreen.push(Qt.point(p.x, p.y))
@@ -1459,7 +1523,7 @@ Rectangle {
             newTrackOutOfSafe.push(!!trackRaw[i].outOfSafeArea)
             newTrackTimestamps.push(trackRaw[i].timestamp || (i>0?newTrackTimestamps[i-1]+40:0))
             newTrackIsAutoDriving.push(trackRaw[i].isAutoDriving)
-            
+
             // 提取车轮数据
             newLeftWheelSetSpeed.push(trackRaw[i].leftWheel ? (trackRaw[i].leftWheel.setSpeed || 0) : 0)
             newLeftWheelMeasuredSpeed.push(trackRaw[i].leftWheel ? (trackRaw[i].leftWheel.measuredSpeed || 0) : 0)
@@ -1468,7 +1532,7 @@ Rectangle {
             newRightWheelMeasuredSpeed.push(trackRaw[i].rightWheel ? (trackRaw[i].rightWheel.measuredSpeed || 0) : 0)
             newRightWheelMileage.push(trackRaw[i].rightWheel ? (trackRaw[i].rightWheel.mileage || 0) : 0)
         }
-        
+
         // 一次性赋值所有数组，确保 QML 能检测到变化并触发 Repeater 更新
         trackScreen = newTrackScreen
         trackAngles = newTrackAngles
@@ -1481,9 +1545,9 @@ Rectangle {
         rightWheelSetSpeed = newRightWheelSetSpeed
         rightWheelMeasuredSpeed = newRightWheelMeasuredSpeed
         rightWheelMileage = newRightWheelMileage
-        
+
         console.log("buildTrackCache completed, trackScreen length:", trackScreen.length)
-        
+
         playIndex = 0
         isPlaying = false
         vehicleTrackShape.updatePartialPath(0, 0)
@@ -1502,10 +1566,10 @@ Rectangle {
     function scheduleNext() {
         if (!isPlaying) return
         if (playIndex + 1 >= trackScreen.length) { isPlaying = false; return }
-        
+
         // 计算两个相邻轨迹点之间的时间差（ms）
         var rawDt = trackTimestamps[playIndex+1] - trackTimestamps[playIndex]
-        
+
         // 考虑倍速播放：rawDt 除以倍速因子得到实际播放间隔
         // 例如：倍速2.0时，原始间隔100ms -> 实际播放50ms
         var dt = rawDt / Math.max(0.001, speedFactor)
@@ -1562,60 +1626,60 @@ Rectangle {
         playIndex = 0
         updateTrackVisual()
     }
-    
+
     function fitMapToView() {
         if (!mapDataManager.isLoaded) return
-            mapViewer.zoomLevel = 1.0
-            mapViewer.panOffset = Qt.point(0, 0)
+        mapViewer.zoomLevel = 1.0
+        mapViewer.panOffset = Qt.point(0, 0)
 
     }
-    
+
     // 自动跟踪函数：始终将小车保持在视角中央
     function updateVehicleTracking() {
         if (!autoFollowVehicle || trackScreen.length === 0 || playIndex < 0 || playIndex >= trackScreen.length) {
             return
         }
-        
+
         // 获取当前小车的屏幕坐标
         var vehicleScreenPos = trackScreen[playIndex]
-        
+
         // 计算视口中央坐标
         var viewCenterX = mapViewer.width / 2
         var viewCenterY = mapViewer.height / 2
-        
+
         // 计算小车相对于视口中心的偏移（未缩放时）
         var offsetX = vehicleScreenPos.x - viewCenterX
         var offsetY = vehicleScreenPos.y - viewCenterY
-        
+
         // 根据当前缩放等级调整偏移
         var adjustedOffsetX = offsetX * mapViewer.zoomLevel
         var adjustedOffsetY = offsetY * mapViewer.zoomLevel
-        
+
         // 更新平移偏移，使小车始终处于视角中央
         mapViewer.panOffset = Qt.point(-adjustedOffsetX, -adjustedOffsetY)
     }
-    
+
     // 格式化时间戳为本地时间字符串（精确到ms）
     function formatTime(index) {
         if(!index){
             return "---- -- -- --:--:--.---"
         }
-        
+
         // 时间戳已经是毫秒单位（从C++转换过来）
         var timestampMs = trackTimestamps[index]
-        
+
         // 创建Date对象
         var date = new Date(timestampMs)
-        
+
         // 获取本地时区偏移（分钟）
         var localTimezoneOffsetMinutes = date.getTimezoneOffset()
 
-        var desiredTimezoneOffsetMinutes = -480  // UTC+8
+        var desiredTimezoneOffsetMinutes = -480 // UTC+8
         var timezoneAdjustment = localTimezoneOffsetMinutes - desiredTimezoneOffsetMinutes
-        
+
         // 调整时间
         var adjustedDate = new Date(timestampMs + timezoneAdjustment * 60 * 1000)
-        
+
         // 提取日期和时间信息
         var year = adjustedDate.getUTCFullYear()
         var month = adjustedDate.getUTCMonth() + 1
@@ -1624,7 +1688,7 @@ Rectangle {
         var minutes = adjustedDate.getUTCMinutes()
         var seconds = adjustedDate.getUTCSeconds()
         var ms = adjustedDate.getUTCMilliseconds()
-        
+
         // 格式化每个部分
         var yearStr = year.toString()
         var monthStr = (month < 10 ? "0" : "") + month
@@ -1633,21 +1697,21 @@ Rectangle {
         var minutesStr = (minutes < 10 ? "0" : "") + minutes
         var secondsStr = (seconds < 10 ? "0" : "") + seconds
         var msStr = (ms < 10 ? "00" : (ms < 100 ? "0" : "")) + ms
-        
+
         return yearStr + "-" + monthStr + "-" + dayStr + " " + hoursStr + ":" + minutesStr + ":" + secondsStr + "." + msStr
     }
-    
+
     // 将地理学角度转换为Qt旋转角度（0度指向右方）
     function convertToQtAngle(geoAngle) {
-        
+
         return 90 - geoAngle;
     }
-    
+
     // 计算Y轴范围
     function calculateYRange(dataArrays) {
         var min = Infinity
         var max = -Infinity
-        
+
         for (var i = 0; i < dataArrays.length; i++) {
             var arr = dataArrays[i]
             for (var j = 0; j < arr.length; j++) {
@@ -1655,53 +1719,53 @@ Rectangle {
                 if (arr[j] > max) max = arr[j]
             }
         }
-        
+
         // 添加10%的边距
         var range = max - min
         if (range === 0) range = 1
         min = min - range * 0.1
         max = max + range * 0.1
-        
+
         return { min: min, max: max }
     }
-    
+
     // 使用Catmull-Rom样条曲线平滑化数据点
     function smoothCurvePoints(dataPoints) {
         if (dataPoints.length < 2) return dataPoints
-        
+
         var smoothed = []
         var segments = 3 // 每两个点之间插入的光滑点数
-        
+
         for (var i = 0; i < dataPoints.length - 1; i++) {
             var p0 = dataPoints[Math.max(0, i - 1)]
             var p1 = dataPoints[i]
             var p2 = dataPoints[i + 1]
             var p3 = dataPoints[Math.min(dataPoints.length - 1, i + 2)]
-            
+
             smoothed.push(p1)
-            
+
             // 使用Catmull-Rom样条插值生成平滑过渡点
             for (var t = 1; t < segments; t++) {
                 var s = t / segments
                 var s2 = s * s
                 var s3 = s2 * s
-                
+
                 // Catmull-Rom系数
                 var c0 = -0.5 * s3 + s2 - 0.5 * s
                 var c1 = 1.5 * s3 - 2.5 * s2 + 1
                 var c2 = -1.5 * s3 + 2 * s2 + 0.5 * s
                 var c3 = 0.5 * s3 - 0.5 * s2
-                
+
                 var value = c0 * p0 + c1 * p1 + c2 * p2 + c3 * p3
                 smoothed.push(value)
             }
         }
-        
+
         // 添加最后一个点
         smoothed.push(dataPoints[dataPoints.length - 1])
         return smoothed
     }
-    
+
     // 绘制图表主函数（双轴：左-速度组，右-里程组）
     function drawChart(canvas, series, labels, colors, yAxisIndex, currentIndex) {
         var ctx = canvas.getContext("2d")
@@ -1877,7 +1941,7 @@ Rectangle {
     }
 
     onCurrentWheelChanged: { if (wheelChart) wheelChart.requestPaint() }
-    
+
     // ============== 窗口大小自适应机制 ==============
     // 监听窗口宽度变化
     onWidthChanged: {
@@ -1891,7 +1955,7 @@ Rectangle {
             });
         }
     }
-    
+
     // 监听窗口高度变化
     onHeightChanged: {
         if (mapDataManager && mapDataManager.isLoaded) {

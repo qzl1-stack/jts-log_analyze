@@ -46,6 +46,7 @@ public:
     
     // 坐标转换
     Q_INVOKABLE QPointF mapToScene(const QPointF& mapCoord, const QRectF& sceneRect, double scale = 1.0) const;
+    Q_INVOKABLE QPointF sceneToMap(const QPointF& sceneCoord, const QRectF& sceneRect, double scale = 1.0) const;
     Q_INVOKABLE QRectF getOptimalViewRect(const QRectF& viewSize) const;
     
     // 属性访问器
