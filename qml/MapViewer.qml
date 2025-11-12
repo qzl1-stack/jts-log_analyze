@@ -174,7 +174,7 @@ Rectangle {
             z: 0.7
             visible: true
 
-            property int gridPxStep: 80 // 每隔多少像素一根线
+            property real gridPxStep: 12
 
             // 横线
             Repeater {
@@ -186,25 +186,24 @@ Rectangle {
                     y: index * gridLayer.gridPxStep
                     z: 1
                     ShapePath {
-                        strokeWidth: 1
+                        strokeWidth: Math.max(0.005, 1 / mapViewer.zoomLevel)
                         strokeColor: "#d3d3d3"
                         fillColor: "transparent"
                         startX: 0; startY: 0
                         PathLine { x: parent.width; y: 0 }
                     }
-                }
-                // 坐标文本
-                Text {
-                    x: 4
-                    y: index * gridLayer.gridPxStep + 2
-                    font.pixelSize: 14
-                    color: "#999"
-                    text: {
-                        var mapY = mapDataManager.sceneToMap(
-                        Qt.point(0, index * gridLayer.gridPxStep),
-                        Qt.rect(0,0,mapViewer.width,mapViewer.height),
-                        mapViewer.zoomLevel).y;
-                        Math.round(mapY)
+                    Text {
+                        x: 4
+                        y: 2
+                        font.pixelSize: 2
+                        color: "#999"
+                        text: {
+                            var mapY = mapDataManager.sceneToMap(
+                            Qt.point(0, index * gridLayer.gridPxStep),
+                            Qt.rect(0,0,mapViewer.width,mapViewer.height),
+                            mapViewer.zoomLevel).y;
+                            Math.round(mapY)
+                        }
                     }
                 }
             }
@@ -219,25 +218,25 @@ Rectangle {
                     x: index * gridLayer.gridPxStep
                     z: 1
                     ShapePath {
-                        strokeWidth: 1
+                        strokeWidth: Math.max(0.005, 1 / mapViewer.zoomLevel)
                         strokeColor: "#d3d3d3"
                         fillColor: "transparent"
                         startX: 0; startY: 0
                         PathLine { x: 0; y: parent.height }
                     }
-                }
-                // 坐标文本
-                Text {
-                    x: index * gridLayer.gridPxStep + 2
-                    y: 14
-                    font.pixelSize: 14
-                    color: "#999"
-                    text: {
-                        var mapX = mapDataManager.sceneToMap(
-                        Qt.point(index * gridLayer.gridPxStep, 0),
-                        Qt.rect(0,0,mapViewer.width,mapViewer.height),
-                        mapViewer.zoomLevel).x;
-                        Math.round(mapX)
+                    // 坐标文本
+                    Text {
+                        x: 2
+                        y: 2
+                        font.pixelSize: 2
+                        color: "#999"
+                        text: {
+                            var mapX = mapDataManager.sceneToMap(
+                            Qt.point(index * gridLayer.gridPxStep, 0),
+                            Qt.rect(0,0,mapViewer.width,mapViewer.height),
+                            mapViewer.zoomLevel).x;
+                            Math.round(mapX)
+                        }
                     }
                 }
             }
