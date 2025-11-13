@@ -20,12 +20,13 @@ class MapDataManager : public QObject
     
     // QML可访问的属性
     Q_PROPERTY(bool isLoaded READ isLoaded NOTIFY isLoadedChanged)
-    Q_PROPERTY(QString layoutName READ layoutName NOTIFY layoutNameChanged)
+    Q_PROPERTY(int layoutName READ layoutName NOTIFY layoutNameChanged)
     Q_PROPERTY(QRectF boundingRect READ boundingRect NOTIFY boundingRectChanged)
     Q_PROPERTY(int segmentCount READ segmentCount NOTIFY segmentCountChanged)
     Q_PROPERTY(int pointCount READ pointCount NOTIFY pointCountChanged)
     Q_PROPERTY(int positionMarkerCount READ positionMarkerCount NOTIFY positionMarkerCountChanged)
     Q_PROPERTY(int vehicleTrackCount READ vehicleTrackCount NOTIFY vehicleTrackCountChanged)
+    Q_PROPERTY(QString version READ version NOTIFY versionChanged)
 
 public:
     explicit MapDataManager(QObject *parent = nullptr);
@@ -51,12 +52,13 @@ public:
     
     // 属性访问器
     bool isLoaded() const { return m_isLoaded; }
-    QString layoutName() const { return m_mapParser->getMapData().layoutName; }
+    int layoutName() const { return m_mapParser->getMapData().layoutName; }
     QRectF boundingRect() const { return m_mapParser->getMapData().boundingRect; }
     int segmentCount() const { return m_mapParser->getMapData().segments.size(); }
     int pointCount() const { return m_mapParser->getMapData().points.size(); }
     int positionMarkerCount() const { return m_mapParser->getMapData().positionMarkers.size(); }
     int vehicleTrackCount() const { return m_mapParser->getMapData().vehicleTrack.size(); }
+    QString version() const { return m_version; }
 
 signals:
     void isLoadedChanged();
@@ -66,6 +68,7 @@ signals:
     void pointCountChanged();
     void positionMarkerCountChanged();
     void vehicleTrackCountChanged();
+    void versionChanged();
     void mapDataLoaded();
     void vehicleTrackLoaded();
     void loadError(const QString& error);
@@ -79,6 +82,7 @@ private:
     MapXmlParser* m_mapParser;
     bool m_isLoaded;
     bool m_vehicleTrackLoaded;
+    QString m_version;
     
     // 内部辅助方法
     QString getXmlContentFromDatabase();

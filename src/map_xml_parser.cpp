@@ -24,11 +24,8 @@ bool MapXmlParser::parseXmlContent(const QString& xmlContent)
         QXmlStreamReader::TokenType token = reader.readNext();
         
         if (token == QXmlStreamReader::StartElement) {
-            QString elementName = reader.name().toString();
-            
+            QString elementName = reader.name().toString();   
             if (elementName == "FileInfo") {
-                parseFileInfo(reader);
-            } else if (elementName == "LayoutInformation") {
                 parseLayoutInformation(reader);
             } else if (elementName == "Defaults") {
                 parseDefaults(reader);
@@ -64,10 +61,9 @@ void MapXmlParser::parseFileInfo(QXmlStreamReader& reader)
 void MapXmlParser::parseLayoutInformation(QXmlStreamReader& reader)
 {
     QXmlStreamAttributes attributes = reader.attributes();
-    if (attributes.hasAttribute("LayoutName")) {
-        m_mapData.layoutName = attributes.value("LayoutName").toString();
+    if (attributes.hasAttribute("FileRevision")) {
+        m_mapData.layoutName = attributes.value("FileRevision").toInt();
     }
-    
     reader.skipCurrentElement();
 }
 

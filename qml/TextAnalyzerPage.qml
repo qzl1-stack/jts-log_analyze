@@ -396,29 +396,6 @@ Page {
             border.color: "#E2E8F0"
             border.width: width > 0 ? 1 : 0
 
-            // // 启用硬件加速
-            // layer.enabled: true
-            // layer.effect: ShaderEffect { /* 可选的自定义着色器 */ }
-
-            // // 优化动画性能
-            // Behavior on width {
-            // NumberAnimation {
-            // duration: 150
-            // easing.type: Easing.Linear
-
-            // // 添加简单的性能日志
-            // onRunningChanged: {
-            // if (running) {
-            // console.time("SidebarAnimation")
-            // } else {
-            // console.timeEnd("SidebarAnimation")
-            // }
-            // }
-            // }
-            // }
-
-            // visible: width > 0
-
             Column {
                 anchors.fill: parent
                 anchors.margins: 15
@@ -993,7 +970,7 @@ Page {
         ]
 
         // 强制使用非原生对话框以确保过滤器正常工作
-        options: FileDialog.DontUseNativeDialog
+        // options: FileDialog.DontUseNativeDialog
 
         onAccepted: function() {
             // 处理文件选择

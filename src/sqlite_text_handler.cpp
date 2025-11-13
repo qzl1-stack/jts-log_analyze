@@ -989,7 +989,8 @@ QString SqliteTextHandler::GetFileKeyword(const QString& file_name) {
         // {"sc2000a", QRegularExpression("^sc2000a$"), QRegularExpression("^sc2000a\\..*$")},
         {"vehicle", QRegularExpression("^vehicle$"), QRegularExpression("^vehicle\\..*$")},
         // {"vehicle_navigator", QRegularExpression("^vehicle_navigator$"), QRegularExpression("^vehicle_navigator\\..*$")},
-        {"map", QRegularExpression("^map$"), QRegularExpression("^map\\..*$")}
+        {"map", QRegularExpression("^map$"), QRegularExpression("^map\\..*$")},
+        {"version",QRegularExpression("^version$"), QRegularExpression("^version\\..*$")}
     };
     
     for (const auto& pattern : patterns) {
@@ -1040,6 +1041,8 @@ QString SqliteTextHandler::GetFileCategory(const QString& keyword) {
         return "SC2000A文件";
     } else if (keyword == "vehicle" || keyword == "vehicle_navigator") {
         return "车辆文件";
+    } else if (keyword == "version") {
+        return "版本文件";
     }
     return "其他文件";
 }

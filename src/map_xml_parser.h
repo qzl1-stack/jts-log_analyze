@@ -100,7 +100,7 @@ struct VehicleTrackPoint {
 };
 
 struct MapData {
-    QString layoutName;
+    int layoutName;
     QList<MapPoint> points;
     QList<MapSegment> segments;
     QList<PositionMarker> positionMarkers;

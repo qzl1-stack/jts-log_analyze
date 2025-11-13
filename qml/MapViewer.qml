@@ -192,19 +192,6 @@ Rectangle {
                         startX: 0; startY: 0
                         PathLine { x: parent.width; y: 0 }
                     }
-                    Text {
-                        x: 4
-                        y: 2
-                        font.pixelSize: 2
-                        color: "#999"
-                        text: {
-                            var mapY = mapDataManager.sceneToMap(
-                            Qt.point(0, index * gridLayer.gridPxStep),
-                            Qt.rect(0,0,mapViewer.width,mapViewer.height),
-                            mapViewer.zoomLevel).y;
-                            Math.round(mapY)
-                        }
-                    }
                 }
             }
 
@@ -224,20 +211,7 @@ Rectangle {
                         startX: 0; startY: 0
                         PathLine { x: 0; y: parent.height }
                     }
-                    // 坐标文本
-                    Text {
-                        x: 2
-                        y: 2
-                        font.pixelSize: 2
-                        color: "#999"
-                        text: {
-                            var mapX = mapDataManager.sceneToMap(
-                            Qt.point(index * gridLayer.gridPxStep, 0),
-                            Qt.rect(0,0,mapViewer.width,mapViewer.height),
-                            mapViewer.zoomLevel).x;
-                            Math.round(mapX)
-                        }
-                    }
+
                 }
             }
         }
@@ -726,6 +700,97 @@ Rectangle {
         }
     }
 
+Item {
+    id: gridLabelsOverlay
+    anchors.fill: parent
+    z: 50
+    visible: true
+
+    property real gridPxStep: 12
+    property real labelMargin: 6
+    property color labelColor: "#333333"
+    property int fontSize: 8
+    property int labelInterval: 2 // 每2条网格线显示一个标签，减少冗余
+
+    // 横向 Y 标签（左侧显示Y坐标）
+    Repeater {
+        id: hLabelRepeater
+        model: Math.ceil(mapViewer.height / parent.gridPxStep) / parent.labelInterval
+        delegate: Text {
+            readonly property real baseY: index * parent.labelInterval * parent.gridPxStep
+            
+            // 应用地图变换：缩放和平移
+            x: parent.labelMargin
+            y: {
+                var centerY = mapViewer.height / 2;
+                return centerY + mapViewer.zoomLevel * (baseY - centerY) + mapViewer.panOffset.y - height/2;
+            }
+            
+            font.pixelSize: parent.fontSize
+            color: parent.labelColor
+            
+            text: {
+                if (!mapDataManager) return ""
+                // 计算对应的地图坐标
+                var scenePoint = Qt.point(0, baseY)
+                var mapPoint = mapDataManager.sceneToMap(scenePoint, 
+                    Qt.rect(0, 0, mapViewer.width, mapViewer.height), 
+                    1.0)
+                return mapPoint ? Math.round(mapPoint.y).toString() : ""
+            }
+            
+            // 只在可见范围内显示
+            visible: y >= -height && y <= mapViewer.height + height
+        }
+    }
+
+    // 纵向 X 标签（顶部显示X坐标）
+    Repeater {
+        id: vLabelRepeater
+        model: Math.ceil(mapViewer.width / parent.gridPxStep) / parent.labelInterval
+        delegate: Text {
+            readonly property real baseX: index * parent.labelInterval * parent.gridPxStep
+            
+            // 应用地图变换：缩放和平移
+            x: {
+                var centerX = mapViewer.width / 2;
+                return centerX + mapViewer.zoomLevel * (baseX - centerX) + mapViewer.panOffset.x - width/2;
+            }
+            y: parent.labelMargin
+            
+            font.pixelSize: parent.fontSize
+            color: parent.labelColor
+            
+            text: {
+                if (!mapDataManager) return ""
+                // 计算对应的地图坐标
+                var scenePoint = Qt.point(baseX, 0)
+                var mapPoint = mapDataManager.sceneToMap(scenePoint, 
+                    Qt.rect(0, 0, mapViewer.width, mapViewer.height), 
+                    1.0)
+                return mapPoint ? Math.round(mapPoint.x).toString() : ""
+            }
+            
+            // 只在可见范围内显示
+            visible: x >= -width && x <= mapViewer.width + width
+        }
+    }
+
+    // 监听地图变换，动态更新标签位置
+    onVisibleChanged: if (visible) updateLabels()
+    Component.onCompleted: updateLabels()
+
+    function updateLabels() {
+        // 强制刷新标签位置
+        Qt.callLater(function() {
+            hLabelRepeater.model = 0
+            vLabelRepeater.model = 0
+            hLabelRepeater.model = Math.ceil(mapViewer.height / gridPxStep) / labelInterval
+            vLabelRepeater.model = Math.ceil(mapViewer.width / gridPxStep) / labelInterval
+        })
+    }
+}
+
     // 位置标记坐标标签（全局，在mapContainer外）
     Rectangle {
         id: markerCoordLabel
@@ -866,128 +931,6 @@ Rectangle {
         }
     }
 
-    // 播放控制面板
-    Rectangle {
-        id: playbackPanel
-        anchors.top: parent.top
-        anchors.left: parent.left
-        anchors.margins: 10
-        width: playbackColumn.width + 20
-        height: playbackColumn.height + 20
-        color: "#FFFFFF"
-        border.color: "#CCCCCC"
-        border.width: 1
-        radius: 6
-        opacity: 0.9
-        visible: mapDataManager.vehicleTrackCount > 0
-
-        Column {
-            id: playbackColumn
-            anchors.centerIn: parent
-            spacing: 8
-
-            // 时间显示区域
-            Rectangle {
-                width: parent.width - 16
-                height: 20
-                color: "#F5F5F5"
-                border.color: "#E0E0E0"
-                border.width: 1
-                radius: 4
-                anchors.horizontalCenter: parent.horizontalCenter
-
-                Column {
-                    anchors.fill: parent
-                    anchors.margins: 6
-                    spacing: 2
-
-                    Text {
-                        text: "当前时间: " + formatTime(mapViewer.playIndex)
-                        font.pixelSize: 10
-                        color: "#333333"
-                    }
-
-                }
-            }
-
-            // 播放、暂停、停止控制
-            Row {
-                spacing: 6
-                anchors.horizontalCenter: parent.horizontalCenter
-                Button {
-                    text: "▶ 播放"
-                    width: 60
-                    height: 28
-                    onClicked: startPlayback()
-                }
-                Button {
-                    text: "⏸ 暂停"
-                    width: 60
-                    height: 28
-                    onClicked: pausePlayback()
-                }
-                Button {
-                    text: "⏹ 停止"
-                    width: 60
-                    height: 28
-                    onClicked: stopPlayback()
-                }
-            }
-
-            // 上帧、下帧控制
-            Row {
-                spacing: 6
-                anchors.horizontalCenter: parent.horizontalCenter
-                Button {
-                    text: "◀ 上帧"
-                    width: 60
-                    height: 28
-                    onClicked: stepBackward()
-                }
-                Button {
-                    text: "下帧 ▶"
-                    width: 60
-                    height: 28
-                    onClicked: stepForward()
-                }
-            }
-
-            // 倍速控制
-            Row {
-                spacing: 6
-                anchors.horizontalCenter: parent.horizontalCenter
-                Text {
-                    text: "倍速："
-                    font.pixelSize: 11
-                    verticalAlignment: Text.AlignVCenter
-                    width: 40
-                }
-                ComboBox {
-                    id: speedBox
-                    width: 70
-                    model: [0.25, 0.5, 1.0, 2.0, 4.0]
-                    currentIndex: 2
-                    onActivated: mapViewer.speedFactor = parseFloat(currentText)
-                }
-            }
-
-            // 自动跟踪控制
-            Button {
-                text: mapViewer.autoFollowVehicle ? "🎯 跟踪中" : "🎯 启用跟踪"
-                width: 120
-                height: 28
-                anchors.horizontalCenter: parent.horizontalCenter
-                onClicked: {
-                    if (mapViewer.autoFollowVehicle) {
-                        mapViewer.autoFollowVehicle = false
-                    } else {
-                        mapViewer.autoFollowVehicle = true
-                        mapViewer.zoomLevel = mapViewer.autoFollowZoom
-                    }
-                }
-            }
-        }
-    }
 
     Rectangle {
         id: statusRect
@@ -1015,6 +958,7 @@ Rectangle {
         }
     }
     Rectangle {
+        id: mapRect
         anchors.bottom: parent.bottom
         anchors.left: statusRect.right
         anchors.margins: 10
@@ -1030,7 +974,27 @@ Rectangle {
         Text {
             id: statusTextRight
             anchors.centerIn: parent
-            text: "布局名称: " + mapDataManager.layoutName
+            text: "地图版本: " + mapDataManager.layoutName
+            font.pixelSize: 10
+            color: "#666666"
+        }
+    }
+    Rectangle {
+        anchors.bottom: parent.bottom
+        anchors.left: mapRect.right
+        anchors.margins: 10
+        width: statusTextRight2.width + 20
+        height: statusTextRight2.height + 10
+        color: "#FFFFFF"
+        border.color: "#CCCCCC"
+        border.width: 1
+        radius: 4
+        opacity: 0.9
+        visible: mapDataManager.isLoaded
+        Text {
+            id: statusTextRight2
+            anchors.centerIn: parent
+            text: "程序版本: " + mapDataManager.version
             font.pixelSize: 10
             color: "#666666"
         }

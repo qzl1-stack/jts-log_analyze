@@ -84,6 +84,23 @@ QString MapDataManager::getXmlContentFromDatabase()
     
     // 通过关键字"map"获取文件内容
     QString content = m_dbManager->GetMergedContentByKeyword("map");
+    QString version_str = m_dbManager->GetMergedContentByKeyword("version");
+    
+    // 从version字符串中提取版本号
+    if (!version_str.isEmpty()) {
+        QStringList lines = version_str.split('\n', Qt::SkipEmptyParts);
+        for (const QString& line : lines) {
+            QString trimmed_line = line.trimmed();
+            if (trimmed_line.startsWith("VERSION=")) {
+                QString version = trimmed_line.mid(8).trimmed(); // 跳过 "VERSION="
+                if (version != m_version) {
+                    m_version = version;
+                    emit versionChanged();
+                }
+                break;
+            }
+        }
+    }
     
     if (content.isEmpty()) {
         // 尝试直接查询file_name为"map.wef"的记录

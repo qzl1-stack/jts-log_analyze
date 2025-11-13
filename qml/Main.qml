@@ -31,211 +31,293 @@ ApplicationWindow {
         y = Screen.height / 2 - height / 2
     }
 
-    // 导航栏
+    // 左侧导航栏
     Rectangle {
         id: navigationBar
         anchors.top: parent.top
         anchors.left: parent.left
-        anchors.right: parent.right
-        height: 60
-        color: "#FFFFFF"
+        anchors.bottom: parent.bottom
+        width: 80
+        color: "#FAFAFA"
         z: 100
         
-        // 阴影效果
+        // 右侧分隔线
         Rectangle {
-            anchors.fill: parent
-            anchors.topMargin: parent.height
-            height: 2
-            gradient: Gradient {
-                GradientStop { position: 0.0; color: "#20000000" }
-                GradientStop { position: 1.0; color: "#00000000" }
-            }
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            width: 1
+            color: "#E5E5E5"
         }
         
-        RowLayout {
-            anchors.fill: parent
-            anchors.margins: 15
-            spacing: 20
+        // 导航按钮容器
+        Column {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.topMargin: 20
+            spacing: 8
             
-            // // 应用标题
-            // Text {
-            //     text: "车辆分析器"
-            //     font.pixelSize: 20
-            //     font.bold: true
-            //     color: Material.accent
-            //     Layout.alignment: Qt.AlignVCenter
-            // }
-            
-            Item { Layout.fillWidth: true }
-            
-            // 导航按钮
-            Row {
-                spacing: 10
+            // 查看日志按钮
+            Rectangle {
+                id: logButton
+                width: parent.width
+                height: 64
+                color: currentPage === 0 ? "#E3F2FD" : "transparent"
                 
-                // 查看日志按钮
+                Behavior on color {
+                    ColorAnimation { duration: 150 }
+                }
+                
+                // 选中指示器
                 Rectangle {
-                    id: logButton
-                    width: 120
-                    height: 40
-                    radius: 8
-                    color: currentPage === 0 ? Material.accent : "#F1F5F9"
-                    border.color: currentPage === 0 ? Material.accent : "#E2E8F0"
-                    border.width: 1
+                    anchors.left: parent.left
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    width: 3
+                    color: Material.accent
+                    visible: currentPage === 0
+                }
+                
+                Column {
+                    anchors.centerIn: parent
+                    spacing: 4
                     
-                    Behavior on color {
-                        ColorAnimation { duration: 200 }
-                    }
-                    
-                    Row {
-                        anchors.centerIn: parent
-                        spacing: 8
-                        
-                        Text {
-                            text: "📄"
-                            font.pixelSize: 16
-                            anchors.verticalCenter: parent.verticalCenter
+                    // 文档图标
+                    Canvas {
+                        id: logIcon
+                        width: 24
+                        height: 24
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        onPaint: {
+                            var ctx = getContext("2d");
+                            ctx.clearRect(0, 0, width, height);
+                            ctx.strokeStyle = currentPage === 0 ? Material.accent : "#666666";
+                            ctx.lineWidth = 2;
+                            ctx.beginPath();
+                            // 文档主体
+                            ctx.rect(4, 6, 12, 14);
+                            // 折角
+                            ctx.moveTo(4, 6);
+                            ctx.lineTo(10, 6);
+                            ctx.lineTo(10, 10);
+                            ctx.lineTo(16, 10);
+                            ctx.stroke();
                         }
-                        
-                        Text {
-                            text: "查看日志"
-                            font.pixelSize: 14
-                            font.bold: currentPage === 0
-                            color: currentPage === 0 ? "#FFFFFF" : "#64748B"
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-                    }
-                    
-                    MouseArea {
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        
-                        onClicked: {
-                            currentPage = 0
-                        }
-                        
-                        onEntered: {
-                            if (currentPage !== 0) {
-                                parent.color = "#E2E8F0"
+                        Connections {
+                            target: root
+                            function onCurrentPageChanged() {
+                                logIcon.requestPaint();
                             }
                         }
-                        
-                        onExited: {
-                            if (currentPage !== 0) {
-                                parent.color = "#F1F5F9"
-                            }
-                        }
+                    }
+                    
+                    Text {
+                        text: "日志"
+                        font.pixelSize: 12
+                        color: currentPage === 0 ? Material.accent : "#666666"
+                        anchors.horizontalCenter: parent.horizontalCenter
                     }
                 }
                 
-                // 车辆回看按钮
-                Rectangle {
-                    id: vehicleButton
-                    width: 120
-                    height: 40
-                    radius: 8
-                    color: currentPage === 1 ? Material.accent : "#F1F5F9"
-                    border.color: currentPage === 1 ? Material.accent : "#E2E8F0"
-                    border.width: 1
+                MouseArea {
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
                     
-                    Behavior on color {
-                        ColorAnimation { duration: 200 }
+                    onClicked: {
+                        currentPage = 0
                     }
                     
-                    Row {
-                        anchors.centerIn: parent
-                        spacing: 8
-                        
-                        Text {
-                            text: "🚗"
-                            font.pixelSize: 16
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-                        
-                        Text {
-                            text: "车辆回看"
-                            font.pixelSize: 14
-                            font.bold: currentPage === 1
-                            color: currentPage === 1 ? "#FFFFFF" : "#64748B"
-                            anchors.verticalCenter: parent.verticalCenter
+                    onEntered: {
+                        if (currentPage !== 0) {
+                            parent.color = "#F5F5F5"
                         }
                     }
                     
-                    MouseArea {
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        
-                        onClicked: {
-                            currentPage = 1
-                        }
-                        
-                        onEntered: {
-                            if (currentPage !== 1) {
-                                parent.color = "#E2E8F0"
-                            }
-                        }
-                        
-                        onExited: {
-                            if (currentPage !== 1) {
-                                parent.color = "#F1F5F9"
-                            }
+                    onExited: {
+                        if (currentPage !== 0) {
+                            parent.color = "transparent"
                         }
                     }
                 }
+            }
+            
+            // 车辆回看按钮
+            Rectangle {
+                id: vehicleButton
+                width: parent.width
+                height: 64
+                color: currentPage === 1 ? "#E3F2FD" : "transparent"
                 
-                // 黑盒子按钮
+                Behavior on color {
+                    ColorAnimation { duration: 150 }
+                }
+                
+                // 选中指示器
                 Rectangle {
-                    id: blackBoxButton
-                    width: 120
-                    height: 40
-                    radius: 8
-                    color: currentPage === 2 ? Material.accent : "#F1F5F9"
-                    border.color: currentPage === 2 ? Material.accent : "#E2E8F0"
-                    border.width: 1
+                    anchors.left: parent.left
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    width: 3
+                    color: Material.accent
+                    visible: currentPage === 1
+                }
+                
+                Column {
+                    anchors.centerIn: parent
+                    spacing: 4
                     
-                    Behavior on color {
-                        ColorAnimation { duration: 200 }
-                    }
-                    
-                    Row {
-                        anchors.centerIn: parent
-                        spacing: 8
-                        
-                        Text {
-                            text: "⚫" // 黑点图标
-                            font.pixelSize: 16
-                            anchors.verticalCenter: parent.verticalCenter
+                    // 回看图标（播放按钮+时间轴）
+                    Canvas {
+                        id: vehicleIcon
+                        width: 24
+                        height: 24
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        onPaint: {
+                            var ctx = getContext("2d");
+                            ctx.clearRect(0, 0, width, height);
+                            ctx.strokeStyle = currentPage === 1 ? Material.accent : "#666666";
+                            ctx.fillStyle = currentPage === 1 ? Material.accent : "#666666";
+                            ctx.lineWidth = 2;
+                            // 播放三角形
+                            ctx.beginPath();
+                            ctx.moveTo(8, 7);
+                            ctx.lineTo(8, 17);
+                            ctx.lineTo(16, 12);
+                            ctx.closePath();
+                            ctx.fill();
+                            // 时间轴线条
+                            ctx.beginPath();
+                            ctx.moveTo(4, 12);
+                            ctx.lineTo(6, 12);
+                            ctx.stroke();
                         }
-                        
-                        Text {
-                            text: "黑盒子"
-                            font.pixelSize: 14
-                            font.bold: currentPage === 2
-                            color: currentPage === 2 ? "#FFFFFF" : "#64748B"
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-                    }
-                    
-                    MouseArea {
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        
-                        onClicked: {
-                            currentPage = 2 // 设置currentPage为2，表示黑盒子页面
-                        }
-                        
-                        onEntered: {
-                            if (currentPage !== 2) {
-                                parent.color = "#E2E8F0"
+                        Connections {
+                            target: root
+                            function onCurrentPageChanged() {
+                                vehicleIcon.requestPaint();
                             }
                         }
-                        
-                        onExited: {
-                            if (currentPage !== 2) {
-                                parent.color = "#F1F5F9"
+                    }
+                    
+                    Text {
+                        text: "回看"
+                        font.pixelSize: 12
+                        color: currentPage === 1 ? Material.accent : "#666666"
+                        anchors.horizontalCenter: parent.horizontalCenter
+                    }
+                }
+                
+                MouseArea {
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    
+                    onClicked: {
+                        currentPage = 1
+                    }
+                    
+                    onEntered: {
+                        if (currentPage !== 1) {
+                            parent.color = "#F5F5F5"
+                        }
+                    }
+                    
+                    onExited: {
+                        if (currentPage !== 1) {
+                            parent.color = "transparent"
+                        }
+                    }
+                }
+            }
+            
+            // 黑盒子按钮
+            Rectangle {
+                id: blackBoxButton
+                width: parent.width
+                height: 64
+                color: currentPage === 2 ? "#E3F2FD" : "transparent"
+                
+                Behavior on color {
+                    ColorAnimation { duration: 150 }
+                }
+                
+                // 选中指示器
+                Rectangle {
+                    anchors.left: parent.left
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    width: 3
+                    color: Material.accent
+                    visible: currentPage === 2
+                }
+                
+                Column {
+                    anchors.centerIn: parent
+                    spacing: 4
+                    
+                    // 黑盒子图标（立方体）
+                    Canvas {
+                        id: blackBoxIcon
+                        width: 24
+                        height: 24
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        onPaint: {
+                            var ctx = getContext("2d");
+                            ctx.clearRect(0, 0, width, height);
+                            ctx.strokeStyle = currentPage === 2 ? Material.accent : "#666666";
+                            ctx.lineWidth = 2;
+                            ctx.beginPath();
+                            // 前面
+                            ctx.rect(6, 8, 10, 10);
+                            // 顶面
+                            ctx.moveTo(6, 8);
+                            ctx.lineTo(10, 4);
+                            ctx.lineTo(20, 4);
+                            ctx.lineTo(16, 8);
+                            // 右侧
+                            ctx.moveTo(16, 8);
+                            ctx.lineTo(16, 18);
+                            ctx.moveTo(20, 4);
+                            ctx.lineTo(20, 14);
+                            ctx.lineTo(16, 18);
+                            ctx.stroke();
+                        }
+                        Connections {
+                            target: root
+                            function onCurrentPageChanged() {
+                                blackBoxIcon.requestPaint();
                             }
+                        }
+                    }
+                    
+                    Text {
+                        text: "黑盒"
+                        font.pixelSize: 12
+                        color: currentPage === 2 ? Material.accent : "#666666"
+                        anchors.horizontalCenter: parent.horizontalCenter
+                    }
+                }
+                
+                MouseArea {
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    
+                    onClicked: {
+                        currentPage = 2
+                    }
+                    
+                    onEntered: {
+                        if (currentPage !== 2) {
+                            parent.color = "#F5F5F5"
+                        }
+                    }
+                    
+                    onExited: {
+                        if (currentPage !== 2) {
+                            parent.color = "transparent"
                         }
                     }
                 }
@@ -270,8 +352,8 @@ ApplicationWindow {
     // 页面容器
     Rectangle {
         id: pageContainer
-        anchors.top: navigationBar.bottom
-        anchors.left: parent.left
+        anchors.top: parent.top
+        anchors.left: navigationBar.right
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         color: "#FFFFFF"
