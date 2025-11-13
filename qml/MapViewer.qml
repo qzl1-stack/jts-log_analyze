@@ -174,7 +174,44 @@ Rectangle {
             z: 0.7
             visible: true
 
-            property real gridPxStep: 12
+            // 网格线间距：根据缩放比例动态调整，使用反比例关系使间距均匀变小
+            // zoomLevel = 1.0 时，gridPxStep = 12
+            // zoomLevel = 1000.0 时，gridPxStep = 0.2
+            property real gridPxStep: {
+                var minZoom = 1.0
+                var maxZoom = 1000.0
+                var minStep = 1
+                var maxStep = 20.0
+                
+                // 边界处理
+                if (mapViewer.zoomLevel <= minZoom) {
+                    return maxStep
+                } else if (mapViewer.zoomLevel >= maxZoom) {
+                    return minStep
+                } else {
+                    // 使用反比例关系使网格间距随缩放均匀变小
+                    // 基础公式：gridPxStep = maxStep / zoomLevel
+                    // 当 zoomLevel = 1.0 时，baseStep = 12.0，需要 gridPxStep = 12.0
+                    // 当 zoomLevel = 1000.0 时，baseStep = 0.012，需要 gridPxStep = 0.2
+                    
+                    // 计算反比例基础值
+                    var baseStep = maxStep / mapViewer.zoomLevel
+                    
+                    // 计算反比例关系的理论范围
+                    var minBaseStep = maxStep / maxZoom  // 12 / 1000 = 0.012
+                    var maxBaseStep = maxStep / minZoom  // 12 / 1 = 12
+                    
+                    // 将反比例值归一化到 [0, 1]
+                    // baseStep 越大（zoomLevel 越小），normalized 越小，gridPxStep 应该越大
+                    // 所以使用 (maxBaseStep - baseStep) / (maxBaseStep - minBaseStep)
+                    var normalized = (maxBaseStep - baseStep) / (maxBaseStep - minBaseStep)
+                    
+                    // 映射到目标范围 [0.2, 12]
+                    // 当 normalized = 0 (baseStep = maxBaseStep = 12) 时，gridPxStep = maxStep = 12
+                    // 当 normalized = 1 (baseStep = minBaseStep = 0.012) 时，gridPxStep = minStep = 0.2
+                    return maxStep - (maxStep - minStep) * normalized
+                }
+            }
 
             // 横线
             Repeater {
@@ -186,7 +223,7 @@ Rectangle {
                     y: index * gridLayer.gridPxStep
                     z: 1
                     ShapePath {
-                        strokeWidth: Math.max(0.005, 1 / mapViewer.zoomLevel)
+                        strokeWidth: Math.max(0.002, 1 / mapViewer.zoomLevel)
                         strokeColor: "#d3d3d3"
                         fillColor: "transparent"
                         startX: 0; startY: 0
@@ -205,13 +242,27 @@ Rectangle {
                     x: index * gridLayer.gridPxStep
                     z: 1
                     ShapePath {
-                        strokeWidth: Math.max(0.005, 1 / mapViewer.zoomLevel)
+                        strokeWidth: Math.max(0.002, 1 / mapViewer.zoomLevel)
                         strokeColor: "#d3d3d3"
                         fillColor: "transparent"
                         startX: 0; startY: 0
                         PathLine { x: 0; y: parent.height }
                     }
 
+                }
+            }
+            
+            // 监听缩放变化，更新网格线
+            Connections {
+                target: mapViewer
+                function onZoomLevelChanged() {
+                    // 强制更新 Repeater 的 model
+                    hLineRepeater.model = 0
+                    vLineRepeater.model = 0
+                    Qt.callLater(function() {
+                        hLineRepeater.model = Math.ceil(mapViewer.height / gridLayer.gridPxStep)
+                        vLineRepeater.model = Math.ceil(mapViewer.width / gridLayer.gridPxStep)
+                    })
                 }
             }
         }
@@ -700,96 +751,125 @@ Rectangle {
         }
     }
 
-Item {
-    id: gridLabelsOverlay
-    anchors.fill: parent
-    z: 50
-    visible: true
+// Item {
+//     id: gridLabelsOverlay
+//     anchors.fill: parent
+//     z: 50
+//     visible: true
 
-    property real gridPxStep: 12
-    property real labelMargin: 6
-    property color labelColor: "#333333"
-    property int fontSize: 8
-    property int labelInterval: 2 // 每2条网格线显示一个标签，减少冗余
+//     property real gridPxStep: {
+//         var minZoom = 1.0
+//         var maxZoom = 1000.0
+//         var minStep = 0.2
+//         var maxStep = 12.0
 
-    // 横向 Y 标签（左侧显示Y坐标）
-    Repeater {
-        id: hLabelRepeater
-        model: Math.ceil(mapViewer.height / parent.gridPxStep) / parent.labelInterval
-        delegate: Text {
-            readonly property real baseY: index * parent.labelInterval * parent.gridPxStep
-            
-            // 应用地图变换：缩放和平移
-            x: parent.labelMargin
-            y: {
-                var centerY = mapViewer.height / 2;
-                return centerY + mapViewer.zoomLevel * (baseY - centerY) + mapViewer.panOffset.y - height/2;
-            }
-            
-            font.pixelSize: parent.fontSize
-            color: parent.labelColor
-            
-            text: {
-                if (!mapDataManager) return ""
-                // 计算对应的地图坐标
-                var scenePoint = Qt.point(0, baseY)
-                var mapPoint = mapDataManager.sceneToMap(scenePoint, 
-                    Qt.rect(0, 0, mapViewer.width, mapViewer.height), 
-                    1.0)
-                return mapPoint ? Math.round(mapPoint.y).toString() : ""
-            }
-            
-            // 只在可见范围内显示
-            visible: y >= -height && y <= mapViewer.height + height
-        }
-    }
+//         // 使用线性插值计算网格间距
+//         if (mapViewer.zoomLevel <= minZoom) {
+//             return maxStep
+//         } else if (mapViewer.zoomLevel >= maxZoom) {
+//             return minStep
+//         } else {
+//             // 线性插值：gridPxStep = maxStep - (maxStep - minStep) * (zoomLevel - minZoom) / (maxZoom - minZoom)
+//             var ratio = (mapViewer.zoomLevel - minZoom) / (maxZoom - minZoom)
+//             return maxStep - (maxStep - minStep) * ratio
+//         }
+//     }
+//     property real labelMargin: 6
+//     property color labelColor: "#333333"
+//     property int fontSize: 8
+//     property int labelInterval: mapViewer.zoomLevel >= 500 ? 1 : 2 
 
-    // 纵向 X 标签（顶部显示X坐标）
-    Repeater {
-        id: vLabelRepeater
-        model: Math.ceil(mapViewer.width / parent.gridPxStep) / parent.labelInterval
-        delegate: Text {
-            readonly property real baseX: index * parent.labelInterval * parent.gridPxStep
+//     // 横向 Y 标签（左侧显示Y坐标）
+//     Repeater {
+//         id: hLabelRepeater
+//         model: Math.ceil(mapViewer.height / parent.gridPxStep) / parent.labelInterval
+//         delegate: Text {
+//             readonly property real baseY: index * parent.labelInterval * parent.gridPxStep
             
-            // 应用地图变换：缩放和平移
-            x: {
-                var centerX = mapViewer.width / 2;
-                return centerX + mapViewer.zoomLevel * (baseX - centerX) + mapViewer.panOffset.x - width/2;
-            }
-            y: parent.labelMargin
+//             // 应用地图变换：缩放和平移
+//             x: parent.labelMargin
+//             y: {
+//                 var centerY = mapViewer.height / 2;
+//                 return centerY + mapViewer.zoomLevel * (baseY - centerY) + mapViewer.panOffset.y - height/2;
+//             }
             
-            font.pixelSize: parent.fontSize
-            color: parent.labelColor
+//             font.pixelSize: parent.fontSize
+//             color: parent.labelColor
             
-            text: {
-                if (!mapDataManager) return ""
-                // 计算对应的地图坐标
-                var scenePoint = Qt.point(baseX, 0)
-                var mapPoint = mapDataManager.sceneToMap(scenePoint, 
-                    Qt.rect(0, 0, mapViewer.width, mapViewer.height), 
-                    1.0)
-                return mapPoint ? Math.round(mapPoint.x).toString() : ""
-            }
+//             text: {
+//                 if (!mapDataManager) return ""
+//                 // 计算对应的地图坐标
+//                 var scenePoint = Qt.point(0, baseY)
+//                 var mapPoint = mapDataManager.sceneToMap(scenePoint, 
+//                     Qt.rect(0, 0, mapViewer.width, mapViewer.height), 
+//                     1.0)
+//                 return mapPoint ? Math.round(mapPoint.y).toString() : ""
+//             }
             
-            // 只在可见范围内显示
-            visible: x >= -width && x <= mapViewer.width + width
-        }
-    }
+//             // 只在可见范围内显示
+//             visible: y >= -height && y <= mapViewer.height + height
+//         }
+//     }
 
-    // 监听地图变换，动态更新标签位置
-    onVisibleChanged: if (visible) updateLabels()
-    Component.onCompleted: updateLabels()
+//     // 纵向 X 标签（顶部显示X坐标）
+//     Repeater {
+//         id: vLabelRepeater
+//         model: Math.ceil(mapViewer.width / parent.gridPxStep) / parent.labelInterval
+//         delegate: Text {
+//             readonly property real baseX: index * parent.labelInterval * parent.gridPxStep
+            
+//             // 应用地图变换：缩放和平移
+//             x: {
+//                 var centerX = mapViewer.width / 2;
+//                 return centerX + mapViewer.zoomLevel * (baseX - centerX) + mapViewer.panOffset.x - width/2;
+//             }
+//             y: parent.labelMargin
+            
+//             font.pixelSize: parent.fontSize
+//             color: parent.labelColor
+            
+//             text: {
+//                 if (!mapDataManager) return ""
+//                 // 计算对应的地图坐标
+//                 var scenePoint = Qt.point(baseX, 0)
+//                 var mapPoint = mapDataManager.sceneToMap(scenePoint, 
+//                     Qt.rect(0, 0, mapViewer.width, mapViewer.height), 
+//                     1.0)
+//                 return mapPoint ? Math.round(mapPoint.x).toString() : ""
+//             }
+            
+//             // 只在可见范围内显示
+//             visible: x >= -width && x <= mapViewer.width + width
+//         }
+//     }
 
-    function updateLabels() {
-        // 强制刷新标签位置
-        Qt.callLater(function() {
-            hLabelRepeater.model = 0
-            vLabelRepeater.model = 0
-            hLabelRepeater.model = Math.ceil(mapViewer.height / gridPxStep) / labelInterval
-            vLabelRepeater.model = Math.ceil(mapViewer.width / gridPxStep) / labelInterval
-        })
-    }
-}
+//     // 监听地图变换，动态更新标签位置
+//     onVisibleChanged: if (visible) updateLabels()
+//     Component.onCompleted: updateLabels()
+
+//     function updateLabels() {
+//         // 强制刷新标签位置
+//         Qt.callLater(function() {
+//             hLabelRepeater.model = 0
+//             vLabelRepeater.model = 0
+//             hLabelRepeater.model = Math.ceil(mapViewer.height / gridPxStep) / labelInterval
+//             vLabelRepeater.model = Math.ceil(mapViewer.width / gridPxStep) / labelInterval
+//         })
+//     }
+
+//     Connections {
+//         target: mapViewer
+//         function onZoomLevelChanged() {
+//             // 强制更新 Repeater 的 model
+//             hLabelRepeater.model = 0
+//             vLabelRepeater.model = 0
+//             Qt.callLater(function() {
+//                 hLabelRepeater.model = Math.ceil(mapViewer.height / gridLayer.gridPxStep)
+//                 vLabelRepeater.model = Math.ceil(mapViewer.width / gridLayer.gridPxStep)
+//             })
+//         }
+//     }
+// }
 
     // 位置标记坐标标签（全局，在mapContainer外）
     Rectangle {
