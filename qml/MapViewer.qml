@@ -9,7 +9,7 @@ Rectangle {
     // 使用上下文提供的全局 mapDataManager（由 AppManager 暴露）
     property real zoomLevel: 1.0
     property real minZoom: 0.1
-    property real maxZoom: 1000.0
+    property real maxZoom: 4000.0
     property point panOffset: Qt.point(0, 0)
     property bool isDragging: false
     property point lastMousePos: Qt.point(0, 0)
@@ -20,6 +20,11 @@ Rectangle {
     property var trackOutOfSafe: [] // 是否越界
     property var trackTimestamps: [] // 时间戳(ms)
     property var trackIsAutoDriving: [] // 是否自动驾驶模式
+    property var trackPathIds: [] // 路径编号
+    property var trackUpcomingPaths: [] // 将要行驶的路径列表
+    property var trackExpectedPositions: [] // 预期位置坐标（屏幕坐标）
+    property var trackExpectedPositionsRaw: [] // 预期位置坐标（原始地图坐标）
+    property var trackLateralDeviations: [] // 横向偏差
     // 车轮数据
     property var leftWheelSetSpeed: [] // 左轮设定速度
     property var leftWheelMeasuredSpeed: [] // 左轮测量速度
@@ -45,9 +50,11 @@ Rectangle {
     property string currentWheel: "left"
     property real speedScaleY: 1.0
     property real mileageScaleY: 1.0
+    property real lateralDeviationScaleY: 1.0
     // 双轴中心（数据值）与范围缓存（原始范围，含padding）
     property real speedCenterValue: NaN
     property real mileageCenterValue: NaN
+    property real lateralDeviationCenterValue: NaN
     property var speedAxisCache: ({ min: 0, max: 1, span: 1 })
     property var mileageAxisCache: ({ min: 0, max: 1, span: 1 })
 
@@ -59,12 +66,117 @@ Rectangle {
     onPlayIndexChanged: {
         if (mapDataManager.vehicleTrackCount > 0 && !chartPanel.collapsed) {
             if (wheelChart) wheelChart.requestPaint()
+            if (lateralDeviationChart) lateralDeviationChart.requestPaint()
         }
+
+        // 触发车辆模型重绘以更新颜色（根据模式和安全区状态）
+        if (directionArrow) directionArrow.requestPaint()
+        
+        // 更新路径显示
+        updatePathDisplay()
 
         // 自动跟踪小车：始终将其保持在视角中央
         if (autoFollowVehicle && trackScreen.length > 0 && playIndex >= 0 && playIndex < trackScreen.length) {
             updateVehicleTracking()
         }
+    }
+    
+    // 路径 SVG 缓存：key 为 pathId，value 为使用 trackScreen 生成的 SVG path 字符串
+    property var pathSvgCache: ({})
+
+    // 基于车辆轨迹点（trackScreen + trackPathIds）预计算每条路径的 SVG 字符串，避免每一帧重复计算
+    function buildPathSvgCache() {
+        var cache = ({})
+
+        if (!trackScreen || !trackPathIds)
+            return
+
+        var len = Math.min(trackScreen.length, trackPathIds.length)
+        if (len <= 1)
+            return
+
+        // 临时按 pathId 分组收集点
+        var pathPoints = ({})
+        for (var i = 0; i < len; ++i) {
+            var id = trackPathIds[i]
+            if (!id || id <= 0)
+                continue
+
+            var key = "" + id
+            if (!pathPoints[key]) {
+                pathPoints[key] = []
+            }
+            pathPoints[key].push(trackScreen[i])
+        }
+
+        // 为每个 pathId 生成一次 SVG polyline（使用 L/M，避免复杂样条计算）
+        var keys = Object.keys(pathPoints)
+        for (var ki = 0; ki < keys.length; ++ki) {
+            var k = keys[ki]
+            var pts = pathPoints[k]
+            if (!pts || pts.length < 2)
+                continue
+
+            var d = ""
+            var last = pts[0]
+            d += "M " + last.x + " " + last.y + " "
+
+            for (var j = 1; j < pts.length; ++j) {
+                var p = pts[j]
+                var dx = p.x - last.x
+                var dy = p.y - last.y
+                d += "L " + p.x + " " + p.y + " "
+                last = p
+            }
+
+            cache[k] = d
+        }
+
+        pathSvgCache = cache
+    }
+
+    // 从缓存中获取某条路径的 SVG 字符串
+    function getPathSvgFromCache(pathId) {
+        if (!pathId || !pathSvgCache)
+            return ""
+        var key = "" + pathId
+        if (pathSvgCache.hasOwnProperty(key))
+            return pathSvgCache[key]
+        return ""
+    }
+    
+    // 更新路径显示（根据当前帧的 pathId 与 upcomingPaths）
+    function updatePathDisplay() {
+        if (playIndex < 0 || playIndex >= trackPathIds.length) {
+            currentPathSvg.path = ""
+            upcomingPathsSvg.path = ""
+            return
+        }
+        
+        var currentPathId = trackPathIds[playIndex]
+        var upcomingPathsList = trackUpcomingPaths[playIndex] || []
+        
+        // 当前行驶路径（蓝色）：直接使用缓存
+        if (currentPathId > 0) {
+            currentPathSvg.path = getPathSvgFromCache(currentPathId)
+        } else {
+            currentPathSvg.path = ""
+        }
+        
+        // 将要行驶路径（浅绿色）：拼接多个 pathId 的缓存结果
+        var upcomingPathStr = ""
+        if (upcomingPathsList && upcomingPathsList.length > 0) {
+            for (var i = 1; i < upcomingPathsList.length; i++) {
+                var pathId = upcomingPathsList[i]
+                if (pathId > 0) {
+                    var pathStr = getPathSvgFromCache(pathId)
+                    if (pathStr && pathStr.length > 0) {
+                        upcomingPathStr += pathStr + " "
+                    }
+                }
+            }
+        }
+        upcomingPathsSvg.path = upcomingPathStr
     }
 
     onChartScaleYChanged: {
@@ -74,6 +186,9 @@ Rectangle {
     }
     onSpeedScaleYChanged: { if (wheelChart) wheelChart.requestPaint() }
     onMileageScaleYChanged: { if (wheelChart) wheelChart.requestPaint() }
+    onLateralDeviationScaleYChanged: { if (lateralDeviationChart) lateralDeviationChart.requestPaint() }
+    onLateralDeviationCenterValueChanged: { if (lateralDeviationChart) lateralDeviationChart.requestPaint() }
+    onTrackLateralDeviationsChanged: { if (lateralDeviationChart) lateralDeviationChart.requestPaint() }
     property int trailLength: -1 // 尾迹长度(-1表示全路径)
     property int minFrameInterval: 1 // 最小帧间隔(ms)
     property int maxFrameInterval: 200 // 最大帧间隔(ms) - 已弃用，为了向后兼容保留
@@ -177,41 +292,43 @@ Rectangle {
             // 网格线间距：根据缩放比例动态调整，使用反比例关系使间距均匀变小
             // zoomLevel = 1.0 时，gridPxStep = 12
             // zoomLevel = 1000.0 时，gridPxStep = 0.2
-            property real gridPxStep: {
-                var minZoom = 1.0
-                var maxZoom = 1000.0
-                var minStep = 1
-                var maxStep = 20.0
+            // property real gridPxStep: {
+            //     var minZoom = 1.0
+            //     var maxZoom = 1000.0
+            //     var minStep = 0.05
+            //     var maxStep = 20.0
                 
-                // 边界处理
-                if (mapViewer.zoomLevel <= minZoom) {
-                    return maxStep
-                } else if (mapViewer.zoomLevel >= maxZoom) {
-                    return minStep
-                } else {
-                    // 使用反比例关系使网格间距随缩放均匀变小
-                    // 基础公式：gridPxStep = maxStep / zoomLevel
-                    // 当 zoomLevel = 1.0 时，baseStep = 12.0，需要 gridPxStep = 12.0
-                    // 当 zoomLevel = 1000.0 时，baseStep = 0.012，需要 gridPxStep = 0.2
+            //     // 边界处理
+            //     if (mapViewer.zoomLevel <= minZoom) {
+            //         return maxStep
+            //     } else if (mapViewer.zoomLevel >= maxZoom) {
+            //         return minStep
+            //     } else {
+            //         // 使用反比例关系使网格间距随缩放均匀变小
+            //         // 基础公式：gridPxStep = maxStep / zoomLevel
+            //         // 当 zoomLevel = 1.0 时，baseStep = 12.0，需要 gridPxStep = 12.0
+            //         // 当 zoomLevel = 1000.0 时，baseStep = 0.012，需要 gridPxStep = 0.2
                     
-                    // 计算反比例基础值
-                    var baseStep = maxStep / mapViewer.zoomLevel
+            //         // 计算反比例基础值
+            //         var baseStep = maxStep / mapViewer.zoomLevel
                     
-                    // 计算反比例关系的理论范围
-                    var minBaseStep = maxStep / maxZoom  // 12 / 1000 = 0.012
-                    var maxBaseStep = maxStep / minZoom  // 12 / 1 = 12
+            //         // 计算反比例关系的理论范围
+            //         var minBaseStep = maxStep / maxZoom  // 12 / 1000 = 0.012
+            //         var maxBaseStep = maxStep / minZoom  // 12 / 1 = 12
                     
-                    // 将反比例值归一化到 [0, 1]
-                    // baseStep 越大（zoomLevel 越小），normalized 越小，gridPxStep 应该越大
-                    // 所以使用 (maxBaseStep - baseStep) / (maxBaseStep - minBaseStep)
-                    var normalized = (maxBaseStep - baseStep) / (maxBaseStep - minBaseStep)
+            //         // 将反比例值归一化到 [0, 1]
+            //         // baseStep 越大（zoomLevel 越小），normalized 越小，gridPxStep 应该越大
+            //         // 所以使用 (maxBaseStep - baseStep) / (maxBaseStep - minBaseStep)
+            //         var normalized = (maxBaseStep - baseStep) / (maxBaseStep - minBaseStep)
                     
-                    // 映射到目标范围 [0.2, 12]
-                    // 当 normalized = 0 (baseStep = maxBaseStep = 12) 时，gridPxStep = maxStep = 12
-                    // 当 normalized = 1 (baseStep = minBaseStep = 0.012) 时，gridPxStep = minStep = 0.2
-                    return maxStep - (maxStep - minStep) * normalized
-                }
-            }
+            //         // 映射到目标范围 [0.2, 12]
+            //         // 当 normalized = 0 (baseStep = maxBaseStep = 12) 时，gridPxStep = maxStep = 12
+            //         // 当 normalized = 1 (baseStep = minBaseStep = 0.012) 时，gridPxStep = minStep = 0.2
+            //         return maxStep - (maxStep - minStep) * normalized
+            //     }
+            // }
+
+             property real gridPxStep: 25
 
             // 横线
             Repeater {
@@ -223,7 +340,7 @@ Rectangle {
                     y: index * gridLayer.gridPxStep
                     z: 1
                     ShapePath {
-                        strokeWidth: Math.max(0.002, 1 / mapViewer.zoomLevel)
+                        strokeWidth: Math.max(0.001, 1 / mapViewer.zoomLevel)
                         strokeColor: "#d3d3d3"
                         fillColor: "transparent"
                         startX: 0; startY: 0
@@ -242,7 +359,7 @@ Rectangle {
                     x: index * gridLayer.gridPxStep
                     z: 1
                     ShapePath {
-                        strokeWidth: Math.max(0.002, 1 / mapViewer.zoomLevel)
+                        strokeWidth: Math.max(0.001, 1 / mapViewer.zoomLevel)
                         strokeColor: "#d3d3d3"
                         fillColor: "transparent"
                         startX: 0; startY: 0
@@ -275,13 +392,13 @@ Rectangle {
             // layer.enabled: true
             layer.samples: 8
             layer.smooth: true
-            z: 1
+            z: 3
 
             // 保留一个透明的占位路径，便于清理时保留至少一个子对象
             ShapePath {
                 id: mainPath
                 strokeColor: "#2196F3"
-                strokeWidth: Math.max(0.005, 2 / mapViewer.zoomLevel) // 逆向缩放保持恒定宽度
+                strokeWidth: Math.max(0.001, 2 / mapViewer.zoomLevel) // 逆向缩放保持恒定宽度
                 fillColor: "transparent"
                 capStyle: ShapePath.RoundCap
                 joinStyle: ShapePath.RoundJoin
@@ -317,7 +434,6 @@ Rectangle {
 
             // 动态创建所有段的路径
             function createPaths() {
-                console.log("createPaths called, mapDataManager:", mapDataManager);
                 if (!mapDataManager || !mapDataManager.isLoaded) {
                     console.log("mapDataManager not ready or not loaded");
                     return;
@@ -474,8 +590,8 @@ Rectangle {
             // 安全段（正常）
             ShapePath {
                 id: trackPathSafe
-                strokeColor: "#2E7D32"
-                strokeWidth: Math.max(0.005, 1 / mapViewer.zoomLevel) // 逆向缩放保持恒定宽度
+                strokeColor: '#319239'
+                strokeWidth: Math.max(0.001, 2 / mapViewer.zoomLevel) // 逆向缩放保持恒定宽度
                 fillColor: "transparent"
                 capStyle: ShapePath.RoundCap
                 joinStyle: ShapePath.RoundJoin
@@ -485,7 +601,7 @@ Rectangle {
             ShapePath {
                 id: trackPathDanger
                 strokeColor: "#FF3B30" // 红色
-                strokeWidth: Math.max(0.005, 1 / mapViewer.zoomLevel) // 逆向缩放保持恒定宽度
+                strokeWidth: Math.max(0.001, 2 / mapViewer.zoomLevel) // 逆向缩放保持恒定宽度
                 fillColor: "transparent"
                 capStyle: ShapePath.RoundCap
                 joinStyle: ShapePath.RoundJoin
@@ -523,6 +639,174 @@ Rectangle {
                 trackSvgSafe.path = dSafe;
                 trackSvgDanger.path = dDanger;
             }
+        }
+
+        // 当前行驶路径显示（蓝色高亮）
+        Shape {
+            id: currentPathShape
+            anchors.fill: parent
+            antialiasing: true
+            layer.samples: 8
+            layer.smooth: true
+            z: 1
+            visible: mapDataManager.vehicleTrackCount > 0 && playIndex >= 0
+
+            ShapePath {
+                id: currentPathPath
+                strokeColor: '#55b55a' // 蓝色：当前行驶路径
+                strokeWidth: Math.max(0.001, 2 / mapViewer.zoomLevel) // 比普通路径稍粗
+                fillColor: "transparent"
+                capStyle: ShapePath.RoundCap
+                joinStyle: ShapePath.RoundJoin
+                PathSvg { id: currentPathSvg; path: "" }
+            }
+        }
+
+        // 将要行驶路径显示（浅绿色高亮）
+        Shape {
+            id: upcomingPathsShape
+            anchors.fill: parent
+            antialiasing: true
+            layer.samples: 8
+            layer.smooth: true
+            z: 1
+            visible: mapDataManager.vehicleTrackCount > 0 && playIndex >= 0
+
+            ShapePath {
+                id: upcomingPathsPath
+                strokeColor:  '#f0d374'// 浅绿色：将要行驶路径
+                strokeWidth: Math.max(0.001, 2 / mapViewer.zoomLevel)
+                fillColor: "transparent"
+                capStyle: ShapePath.RoundCap
+                joinStyle: ShapePath.RoundJoin
+                PathSvg { id: upcomingPathsSvg; path: "" }
+            }
+        }
+
+        // 预期路径虚线显示
+        Shape {
+            id: expectedPathShape
+            anchors.fill: parent
+            antialiasing: true
+            layer.samples: 8
+            layer.smooth: true
+            z: 1
+            visible: mapDataManager.vehicleTrackCount > 0
+
+            ShapePath {
+                id: expectedPathShapePath
+                strokeColor: "#d3d3d3"// 
+                strokeWidth: Math.max(0.001, 1.5 / mapViewer.zoomLevel)
+                fillColor: "transparent"
+                capStyle: ShapePath.RoundCap
+                joinStyle: ShapePath.RoundJoin
+                strokeStyle: ShapePath.DashLine
+                dashPattern: [4, 4] // 虚线样式
+                PathSvg { id: expectedPathSvg; path: "" }
+            }
+            
+            // 更新预期路径
+            function updateExpectedPath() {
+                if (trackExpectedPositionsRaw.length === 0) {
+                    expectedPathSvg.path = ""
+                    // 清除旧的标签
+                    for (var k = expectedPathLabels.children.length - 1; k >= 0; k--) {
+                        expectedPathLabels.children[k].destroy()
+                    }
+                    return
+                }
+                
+                var d = ""
+                var segments = [] // 存储连续相同坐标的段
+                
+                // 在原始地图坐标中查找连续相同的 x 或 y（超过15次）
+                var i = 0
+                while (i < trackExpectedPositionsRaw.length) {
+                    var currRaw = trackExpectedPositionsRaw[i]
+                    var startIdx = i
+                    var sameValue = null
+                    var type = "" // "x" 或 "y"
+                    
+                    // 检查 x 是否连续相同
+                    var xCount = 1
+                    for (var j = i + 1; j < trackExpectedPositionsRaw.length; j++) {
+                        if (Math.abs(trackExpectedPositionsRaw[j].x - currRaw.x) < 0.5) {
+                            xCount++
+                        } else {
+                            break
+                        }
+                    }
+                    
+                    // 检查 y 是否连续相同
+                    var yCount = 1
+                    for (var k = i + 1; k < trackExpectedPositionsRaw.length; k++) {
+                        if (Math.abs(trackExpectedPositionsRaw[k].y - currRaw.y) < 0.5) {
+                            yCount++
+                        } else {
+                            break
+                        }
+                    }
+                    
+                    // 选择连续次数更多的（优先 x，如果相同则优先 x）
+                    if (xCount >= 100) {
+                        type = "x"
+                        sameValue = currRaw.x
+                        segments.push({
+                            start: i,
+                            end: i + xCount - 1,
+                            value: sameValue,
+                            type: type
+                        })
+                        i += xCount // 跳过已处理的点
+                    } else if (yCount >= 100) {
+                        type = "y"
+                        sameValue = currRaw.y
+                        segments.push({
+                            start: i,
+                            end: i + yCount - 1,
+                            value: sameValue,
+                            type: type
+                        })
+                        i += yCount // 跳过已处理的点
+                    } else {
+                        // 都不满足，继续下一个点
+                        i++
+                    }
+                }
+                
+                // 绘制每个段
+                for (var segIdx = 0; segIdx < segments.length; segIdx++) {
+                    var seg = segments[segIdx]
+                    
+                    // 根据类型绘制延伸到边缘的直线
+                    if (seg.type === "x") {
+                        // x 相同，绘制垂直线（延伸到地图边缘）
+                        // 计算地图坐标对应的场景坐标
+                        var mapPointX = Qt.point(seg.value, 0) // 使用原始地图坐标
+                        var scenePointTop = mapDataManager.mapToScene(mapPointX, Qt.rect(0, 0, mapViewer.width, mapViewer.height), 1.0)
+                        var mapPointBottom = Qt.point(seg.value, mapViewer.height) // 假设地图高度足够
+                        var scenePointBottom = mapDataManager.mapToScene(mapPointBottom, Qt.rect(0, 0, mapViewer.width, mapViewer.height), 1.0)
+                        
+                        // 延伸到屏幕边缘
+                        var xPos = scenePointTop.x
+                        d += "M " + xPos + " 0 L " + xPos + " " + mapViewer.height + " "
+                    } else if (seg.type === "y") {
+                        // y 相同，绘制水平线（延伸到地图边缘）
+                        var mapPointY = Qt.point(0, seg.value)
+                        var scenePointLeft = mapDataManager.mapToScene(mapPointY, Qt.rect(0, 0, mapViewer.width, mapViewer.height), 1.0)
+                        var mapPointRight = Qt.point(mapViewer.width, seg.value)
+                        var scenePointRight = mapDataManager.mapToScene(mapPointRight, Qt.rect(0, 0, mapViewer.width, mapViewer.height), 1.0)
+                        
+                        // 延伸到屏幕边缘
+                        var yPos = scenePointLeft.y
+                        d += "M 0 " + yPos + " L " + mapViewer.width + " " + yPos + " "
+                    }
+                }
+                
+                expectedPathSvg.path = d
+            }
+            
+            Component.onCompleted: updateExpectedPath()
         }
 
         // 轨迹点标记显示（所有轨迹点的圆形标记）
@@ -639,9 +923,26 @@ Rectangle {
                     ctx.clearRect(0, 0, width, height);
 
                     var isOutOfSafe = mapViewer.trackOutOfSafe[mapViewer.playIndex];
-                    var mainColor = isOutOfSafe ? 'rgba(255, 59, 48, 0.5)' : 'rgba(33, 150, 243, 0.5)';
-                    var accentColor = isOutOfSafe ? 'rgba(255, 59, 48, 0.8)' : 'rgba(33, 150, 243, 0.8)';
-                    var lightColor = isOutOfSafe ? 'rgba(255, 59, 48, 0.3)' : 'rgba(33, 150, 243, 0.3)';
+                    var isAutoDriving = (mapViewer.playIndex >= 0 && mapViewer.playIndex < mapViewer.trackIsAutoDriving.length && mapViewer.trackIsAutoDriving[mapViewer.playIndex]);
+                    
+                    // 颜色逻辑：超出安全区=红色，安全区内自动模式=绿色，安全区内手动模式=黄色
+                    var mainColor, accentColor, lightColor;
+                    if (isOutOfSafe) {
+                        // 超出安全区：红色
+                        mainColor = 'rgba(255, 59, 48, 0.5)';
+                        accentColor = 'rgba(255, 59, 48, 0.8)';
+                        lightColor = 'rgba(255, 59, 48, 0.3)';
+                    } else if (isAutoDriving) {
+                        // 自动模式：绿色
+                        mainColor = 'rgba(76, 175, 80, 0.5)';
+                        accentColor = 'rgba(76, 175, 80, 0.8)';
+                        lightColor = 'rgba(76, 175, 80, 0.3)';
+                    } else {
+                        // 手动模式：黄色
+                        mainColor = 'rgba(255, 152, 0, 0.5)';
+                        accentColor = 'rgba(255, 152, 0, 0.8)';
+                        lightColor = 'rgba(255, 152, 0, 0.3)';
+                    }
 
                     var w = width;
                     var h = height;
@@ -701,6 +1002,17 @@ Rectangle {
                     ctx.fill();
 
                 }
+                
+                // 监听相关属性变化以触发重绘
+                Connections {
+                    target: mapViewer
+                    function onTrackIsAutoDrivingChanged() {
+                        directionArrow.requestPaint()
+                    }
+                    function onTrackOutOfSafeChanged() {
+                        directionArrow.requestPaint()
+                    }
+                }
             }
 
             // 二维码扫描提示（简洁闪烁提示）
@@ -751,125 +1063,227 @@ Rectangle {
         }
     }
 
-// Item {
-//     id: gridLabelsOverlay
-//     anchors.fill: parent
-//     z: 50
-//     visible: true
+Item {
+    id: gridLabelsOverlay
+    anchors.fill: parent
+    z: 50
+    visible: true
 
-//     property real gridPxStep: {
-//         var minZoom = 1.0
-//         var maxZoom = 1000.0
-//         var minStep = 0.2
-//         var maxStep = 12.0
+    // property real gridPxStep: {
+    //     var minZoom = 1.0
+    //     var maxZoom = 1000.0
+    //     var minStep = 8
+    //     var maxStep = 12.0
 
-//         // 使用线性插值计算网格间距
-//         if (mapViewer.zoomLevel <= minZoom) {
-//             return maxStep
-//         } else if (mapViewer.zoomLevel >= maxZoom) {
-//             return minStep
-//         } else {
-//             // 线性插值：gridPxStep = maxStep - (maxStep - minStep) * (zoomLevel - minZoom) / (maxZoom - minZoom)
-//             var ratio = (mapViewer.zoomLevel - minZoom) / (maxZoom - minZoom)
-//             return maxStep - (maxStep - minStep) * ratio
-//         }
-//     }
-//     property real labelMargin: 6
-//     property color labelColor: "#333333"
-//     property int fontSize: 8
-//     property int labelInterval: mapViewer.zoomLevel >= 500 ? 1 : 2 
+    //     // 使用线性插值计算网格间距
+    //     if (mapViewer.zoomLevel <= minZoom) {
+    //         return maxStep
+    //     } else if (mapViewer.zoomLevel >= maxZoom) {
+    //         return minStep
+    //     } else {
+    //         // 线性插值：gridPxStep = maxStep - (maxStep - minStep) * (zoomLevel - minZoom) / (maxZoom - minZoom)
+    //         var ratio = (mapViewer.zoomLevel - minZoom) / (maxZoom - minZoom)
+    //         return maxStep - (maxStep - minStep) * ratio
+    //     }
+    // }
 
-//     // 横向 Y 标签（左侧显示Y坐标）
-//     Repeater {
-//         id: hLabelRepeater
-//         model: Math.ceil(mapViewer.height / parent.gridPxStep) / parent.labelInterval
-//         delegate: Text {
-//             readonly property real baseY: index * parent.labelInterval * parent.gridPxStep
-            
-//             // 应用地图变换：缩放和平移
-//             x: parent.labelMargin
-//             y: {
-//                 var centerY = mapViewer.height / 2;
-//                 return centerY + mapViewer.zoomLevel * (baseY - centerY) + mapViewer.panOffset.y - height/2;
-//             }
-            
-//             font.pixelSize: parent.fontSize
-//             color: parent.labelColor
-            
-//             text: {
-//                 if (!mapDataManager) return ""
-//                 // 计算对应的地图坐标
-//                 var scenePoint = Qt.point(0, baseY)
-//                 var mapPoint = mapDataManager.sceneToMap(scenePoint, 
-//                     Qt.rect(0, 0, mapViewer.width, mapViewer.height), 
-//                     1.0)
-//                 return mapPoint ? Math.round(mapPoint.y).toString() : ""
-//             }
-            
-//             // 只在可见范围内显示
-//             visible: y >= -height && y <= mapViewer.height + height
-//         }
-//     }
+    property real gridPxStep: 25
+    property real labelMargin: 6
+    property color labelColor: "#333333"
+    property int fontSize: 8
+    property int labelInterval: mapViewer.zoomLevel >= 500 ? 1 : 2 
 
-//     // 纵向 X 标签（顶部显示X坐标）
-//     Repeater {
-//         id: vLabelRepeater
-//         model: Math.ceil(mapViewer.width / parent.gridPxStep) / parent.labelInterval
-//         delegate: Text {
-//             readonly property real baseX: index * parent.labelInterval * parent.gridPxStep
+    // 横向 Y 标签（左侧显示Y坐标）
+    Repeater {
+        id: hLabelRepeater
+        model: Math.ceil(mapViewer.height / parent.gridPxStep) / parent.labelInterval
+        delegate: Text {
+            readonly property real baseY: index * parent.labelInterval * parent.gridPxStep
             
-//             // 应用地图变换：缩放和平移
-//             x: {
-//                 var centerX = mapViewer.width / 2;
-//                 return centerX + mapViewer.zoomLevel * (baseX - centerX) + mapViewer.panOffset.x - width/2;
-//             }
-//             y: parent.labelMargin
+            // 应用地图变换：缩放和平移
+            x: parent.labelMargin
+            y: {
+                var centerY = mapViewer.height / 2;
+                return centerY + mapViewer.zoomLevel * (baseY - centerY) + mapViewer.panOffset.y - height/2;
+            }
             
-//             font.pixelSize: parent.fontSize
-//             color: parent.labelColor
+            font.pixelSize: parent.fontSize
+            color: parent.labelColor
             
-//             text: {
-//                 if (!mapDataManager) return ""
-//                 // 计算对应的地图坐标
-//                 var scenePoint = Qt.point(baseX, 0)
-//                 var mapPoint = mapDataManager.sceneToMap(scenePoint, 
-//                     Qt.rect(0, 0, mapViewer.width, mapViewer.height), 
-//                     1.0)
-//                 return mapPoint ? Math.round(mapPoint.x).toString() : ""
-//             }
+            text: {
+                if (!mapDataManager) return ""
+                // 计算对应的地图坐标
+                var scenePoint = Qt.point(0, baseY)
+                var mapPoint = mapDataManager.sceneToMap(scenePoint, 
+                    Qt.rect(0, 0, mapViewer.width, mapViewer.height), 
+                    1.0)
+                return mapPoint ? Math.round(mapPoint.y).toString() : ""
+            }
             
-//             // 只在可见范围内显示
-//             visible: x >= -width && x <= mapViewer.width + width
-//         }
-//     }
+            // 只在可见范围内显示
+            visible: y >= -height && y <= mapViewer.height + height
+        }
+    }
 
-//     // 监听地图变换，动态更新标签位置
-//     onVisibleChanged: if (visible) updateLabels()
-//     Component.onCompleted: updateLabels()
+    // 纵向 X 标签（顶部显示X坐标）
+    Repeater {
+        id: vLabelRepeater
+        model: Math.ceil(mapViewer.width / parent.gridPxStep) / parent.labelInterval
+        delegate: Text {
+            readonly property real baseX: index * parent.labelInterval * parent.gridPxStep
+            
+            // 应用地图变换：缩放和平移
+            x: {
+                var centerX = mapViewer.width / 2;
+                return centerX + mapViewer.zoomLevel * (baseX - centerX) + mapViewer.panOffset.x - width/2;
+            }
+            y: parent.labelMargin
+            
+            font.pixelSize: parent.fontSize
+            color: parent.labelColor
+            
+            text: {
+                if (!mapDataManager) return ""
+                // 计算对应的地图坐标
+                var scenePoint = Qt.point(baseX, 0)
+                var mapPoint = mapDataManager.sceneToMap(scenePoint, 
+                    Qt.rect(0, 0, mapViewer.width, mapViewer.height), 
+                    1.0)
+                return mapPoint ? Math.round(mapPoint.x).toString() : ""
+            }
+            
+            // 只在可见范围内显示
+            visible: x >= -width && x <= mapViewer.width + width
+        }
+    }
 
-//     function updateLabels() {
-//         // 强制刷新标签位置
-//         Qt.callLater(function() {
-//             hLabelRepeater.model = 0
-//             vLabelRepeater.model = 0
-//             hLabelRepeater.model = Math.ceil(mapViewer.height / gridPxStep) / labelInterval
-//             vLabelRepeater.model = Math.ceil(mapViewer.width / gridPxStep) / labelInterval
-//         })
-//     }
+    // 监听地图变换，动态更新标签位置
+    onVisibleChanged: if (visible) updateLabels()
+    Component.onCompleted: updateLabels()
 
-//     Connections {
-//         target: mapViewer
-//         function onZoomLevelChanged() {
-//             // 强制更新 Repeater 的 model
-//             hLabelRepeater.model = 0
-//             vLabelRepeater.model = 0
-//             Qt.callLater(function() {
-//                 hLabelRepeater.model = Math.ceil(mapViewer.height / gridLayer.gridPxStep)
-//                 vLabelRepeater.model = Math.ceil(mapViewer.width / gridLayer.gridPxStep)
-//             })
-//         }
-//     }
-// }
+    function updateLabels() {
+        // 强制刷新标签位置
+        Qt.callLater(function() {
+            hLabelRepeater.model = 0
+            vLabelRepeater.model = 0
+            hLabelRepeater.model = Math.ceil(mapViewer.height / gridPxStep) / labelInterval
+            vLabelRepeater.model = Math.ceil(mapViewer.width / gridPxStep) / labelInterval
+        })
+    }
+
+    Connections {
+        target: mapViewer
+        function onZoomLevelChanged() {
+            // 强制更新 Repeater 的 model
+            hLabelRepeater.model = 0
+            vLabelRepeater.model = 0
+            Qt.callLater(function() {
+                hLabelRepeater.model = Math.ceil(mapViewer.height / gridLayer.gridPxStep)
+                vLabelRepeater.model = Math.ceil(mapViewer.width / gridLayer.gridPxStep)
+            })
+        }
+        }
+    }
+
+    // 预期路径标签容器（全局，在mapContainer外）
+    Repeater {
+        id: expectedPathLabels
+        model: {
+            if (trackExpectedPositionsRaw.length === 0) return []
+            var segments = []
+            var i = 0
+            while (i < trackExpectedPositionsRaw.length) {
+                var currRaw = trackExpectedPositionsRaw[i]
+                var xCount = 1
+                for (var j = i + 1; j < trackExpectedPositionsRaw.length; j++) {
+                    if (Math.abs(trackExpectedPositionsRaw[j].x - currRaw.x) < 0.5) {
+                        xCount++
+                    } else {
+                        break
+                    }
+                }
+                var yCount = 1
+                for (var k = i + 1; k < trackExpectedPositionsRaw.length; k++) {
+                    if (Math.abs(trackExpectedPositionsRaw[k].y - currRaw.y) < 0.5) {
+                        yCount++
+                    } else {
+                        break
+                    }
+                }
+                if (xCount >= 50) {
+                    segments.push({value: currRaw.x, type: "x"})
+                    i += xCount
+                } else if (yCount >= 15) {
+                    segments.push({value: currRaw.y, type: "y"})
+                    i += yCount
+                } else {
+                    i++
+                }
+            }
+            return segments
+        }
+        
+        delegate: Text {
+            readonly property var seg: modelData
+            
+            color: "#FF6B6B"
+            font.pixelSize: 12
+            font.bold: true
+            style: Text.Outline
+            styleColor: "#FFFFFF"
+            z: 51
+            
+            text: {
+                if (!seg) return ""
+                if (seg.type === "x") {
+                    return "x=" + seg.value.toFixed(0)
+                } else {
+                    return "y=" + seg.value.toFixed(0)
+                }
+            }
+            
+            x: {
+                if (!seg || !mapDataManager) return 0
+                if (seg.type === "x") {
+                    // 垂直线标签：显示在顶部，类似 vLabelRepeater
+                    // 计算对应的地图坐标对应的场景坐标
+                    var scenePoint = Qt.point(0, 0)
+                    var mapPoint = Qt.point(seg.value, 0)
+                    scenePoint = mapDataManager.mapToScene(mapPoint, Qt.rect(0, 0, mapViewer.width, mapViewer.height), 1.0)
+                    var centerX = mapViewer.width / 2
+                    return centerX + mapViewer.zoomLevel * (scenePoint.x - centerX) + mapViewer.panOffset.x - width / 2
+                } else {
+                    // 水平线标签：显示在左侧
+                    return gridLabelsOverlay.labelMargin
+                }
+            }
+            
+            y: {
+                if (!seg || !mapDataManager) return 0
+                if (seg.type === "x") {
+                    // 垂直线标签：显示在顶部
+                    return gridLabelsOverlay.labelMargin
+                } else {
+                    // 水平线标签：显示在左侧，类似 hLabelRepeater
+                    var scenePoint = Qt.point(0, 0)
+                    var mapPoint = Qt.point(0, seg.value)
+                    scenePoint = mapDataManager.mapToScene(mapPoint, Qt.rect(0, 0, mapViewer.width, mapViewer.height), 1.0)
+                    var centerY = mapViewer.height / 2
+                    return centerY + mapViewer.zoomLevel * (scenePoint.y - centerY) + mapViewer.panOffset.y - height / 2
+                }
+            }
+            
+            // 只在可见范围内显示
+            visible: {
+                if (!seg) return false
+                if (seg.type === "x") {
+                    return x >= -width && x <= mapViewer.width + width
+                } else {
+                    return y >= -height && y <= mapViewer.height + height
+                }
+            }
+        }
+    }
 
     // 位置标记坐标标签（全局，在mapContainer外）
     Rectangle {
@@ -889,7 +1303,7 @@ Rectangle {
         Text {
             id: coordLabelText
             anchors.centerIn: parent
-            font.pixelSize: 10
+            font.pixelSize: 13
             color: "#333333"
             text: parent.currentCoord
         }
@@ -957,7 +1371,7 @@ Rectangle {
                         var trackPoint = mapViewer.trackRaw[j]
                         if (trackPoint) {
                             console.log("TrackPoint clicked:", trackPoint.x, trackPoint.y, "index:", j)
-                            markerCoordLabel.currentCoord = "(" + trackPoint.x.toFixed(0) + ", " + trackPoint.y.toFixed(0) + ")"
+                            markerCoordLabel.currentCoord = "(" + trackPoint.x.toFixed(0) + ", " + trackPoint.y.toFixed(0) + ")" + "\n" + "横向偏差:  " + trackLateralDeviations[j]
                             markerCoordLabel.x = trackScreenX - markerCoordLabel.width/2
                             markerCoordLabel.y = trackScreenY - markerCoordLabel.height - 10
                             markerCoordLabel.visible = true
@@ -992,7 +1406,7 @@ Rectangle {
         }
 
         onWheel: function(wheel) {
-            var scaleFactor = wheel.angleDelta.y > 0 ? 1.1 : 0.9
+            var scaleFactor = wheel.angleDelta.y > 0 ? 1.5 : 0.7
             var oldZoom = mapViewer.zoomLevel
             var newZoom = Math.max(mapViewer.minZoom, Math.min(mapViewer.maxZoom, oldZoom * scaleFactor))
             if (newZoom === oldZoom) return
@@ -1098,6 +1512,7 @@ Rectangle {
         z: 10
 
         property bool collapsed: true
+        property real scrollOffset: 0 // 滚动偏移量
 
         Behavior on width {
             NumberAnimation { duration: 300; easing.type: Easing.InOutQuad }
@@ -1114,14 +1529,22 @@ Rectangle {
             onClicked: chartPanel.collapsed = !chartPanel.collapsed
         }
 
-        // 单图（左轮/右轮切换，双纵轴）
-        Column {
-            id: singleChartContainer
+        // 可滚动内容区域
+        Flickable {
+            id: chartScrollArea
             anchors.fill: parent
             anchors.margins: 10
             anchors.topMargin: 45
-            spacing: 10
+            contentWidth: width
+            contentHeight: singleChartContainer.childrenRect.height
+            clip: true
             visible: !chartPanel.collapsed
+            
+            // 单图（左轮/右轮切换，双纵轴）
+            Column {
+                id: singleChartContainer
+                width: parent.width
+                spacing: 10
 
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -1530,6 +1953,219 @@ Rectangle {
                     }
                 }
             }
+
+            // 横向偏差图表
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "横向偏差"
+                font.bold: true
+                font.pixelSize: 14
+            }
+
+            Canvas {
+                id: lateralDeviationChart
+                width: parent.width - 20
+                height: 300
+                onPaint: {
+                    if (!trackLateralDeviations || trackLateralDeviations.length === 0) return
+                    var ctx = lateralDeviationChart.getContext("2d")
+                    ctx.clearRect(0, 0, width, height)
+                    var w = width
+                    var h = height
+                    var padding = { left: 44, right: 44, top: 12, bottom: 22 }
+                    var chartW = w - padding.left - padding.right
+                    var chartH = h - padding.top - padding.bottom
+                    var totalDataPoints = trackLateralDeviations.length
+                    
+                    // 计算Y轴范围
+                    var min = Infinity, max = -Infinity
+                    for (var i = 0; i < trackLateralDeviations.length; i++) {
+                        if (trackLateralDeviations[i] < min) min = trackLateralDeviations[i]
+                        if (trackLateralDeviations[i] > max) max = trackLateralDeviations[i]
+                    }
+                    if (min === Infinity) { min = 0; max = 1 }
+                    var span = max - min
+                    if (Math.abs(span) < 1e-6) { span = 1; min = max - span }
+                    min -= span * 0.1
+                    max += span * 0.1
+                    span = max - min
+                    
+                    // 应用缩放
+                    var scaledSpan = span / Math.max(0.1, lateralDeviationScaleY)
+                    if (!(lateralDeviationCenterValue === lateralDeviationCenterValue)) {
+                        lateralDeviationCenterValue = (min + max) / 2
+                    }
+                    var minCenter = min + scaledSpan / 2
+                    var maxCenter = max - scaledSpan / 2
+                    if (minCenter > maxCenter) { minCenter = maxCenter = (min + max) / 2 }
+                    lateralDeviationCenterValue = Math.max(minCenter, Math.min(maxCenter, lateralDeviationCenterValue))
+                    var scaledMin = lateralDeviationCenterValue - scaledSpan / 2
+                    var scaledMax = lateralDeviationCenterValue + scaledSpan / 2
+                    
+                    // 背景网格
+                    ctx.strokeStyle = "#E0E0E0"
+                    ctx.lineWidth = 0.5
+                    for (var g = 0; g <= 5; g++) {
+                        var gy = padding.top + (chartH / 5) * g
+                        ctx.beginPath()
+                        ctx.moveTo(padding.left, gy)
+                        ctx.lineTo(padding.left + chartW, gy)
+                        ctx.stroke()
+                    }
+                    
+                    // 坐标轴
+                    ctx.strokeStyle = "#333333"
+                    ctx.lineWidth = 1
+                    ctx.beginPath()
+                    ctx.moveTo(padding.left, padding.top)
+                    ctx.lineTo(padding.left, padding.top + chartH)
+                    ctx.moveTo(padding.left + chartW, padding.top)
+                    ctx.lineTo(padding.left + chartW, padding.top + chartH)
+                    ctx.moveTo(padding.left, padding.top + chartH)
+                    ctx.lineTo(padding.left + chartW, padding.top + chartH)
+                    ctx.stroke()
+                    
+                    // Y轴刻度与标签
+                    ctx.fillStyle = "#666666"
+                    ctx.font = "9px sans-serif"
+                    ctx.textAlign = "right"
+                    for (var t = 0; t <= 5; t++) {
+                        var yL = padding.top + (chartH / 5) * t
+                        var vL = scaledMax - (scaledSpan / 5) * t
+                        ctx.fillText(vL.toFixed(2), padding.left - 6, yL + 3)
+                    }
+                    
+                    // 绘制曲线
+                    var displayDataPoints = Math.max(2, Math.floor(totalDataPoints / chartScaleX))
+                    var smoothed = smoothCurvePoints(trackLateralDeviations)
+                    ctx.strokeStyle = "#9C27B0"
+                    ctx.lineWidth = 2.0
+                    ctx.lineCap = "round"
+                    ctx.lineJoin = "round"
+                    ctx.beginPath()
+                    var drawn = false
+                    for (var pi = 0; pi < displayDataPoints; pi++) {
+                        var origIdx = (pi / (displayDataPoints - 1)) * (totalDataPoints - 1)
+                        var sIdx = (origIdx / (totalDataPoints - 1)) * (smoothed.length - 1)
+                        var i0 = Math.floor(sIdx), i1 = Math.ceil(sIdx), tt = sIdx - i0
+                        var val = (i0 === i1) ? smoothed[i0] : (smoothed[i0] * (1 - tt) + smoothed[i1] * tt)
+                        var x = padding.left + (pi / Math.max(1, displayDataPoints - 1)) * chartW
+                        var yNorm = scaledSpan > 0 ? (val - scaledMin) / scaledSpan : 0.5
+                        if (yNorm < 0) yNorm = 0
+                        if (yNorm > 1) yNorm = 1
+                        var y = padding.top + chartH - yNorm * chartH
+                        if (!drawn) {
+                            ctx.moveTo(x, y)
+                            drawn = true
+                        } else {
+                            ctx.lineTo(x, y)
+                        }
+                    }
+                    ctx.stroke()
+                    
+                    // 当前位置标记（垂直线）
+                    if (playIndex >= 0 && playIndex < totalDataPoints) {
+                        var markerX = padding.left + (playIndex / Math.max(1, displayDataPoints - 1)) * chartW
+                        ctx.strokeStyle = "#F44336"
+                        ctx.lineWidth = 2
+                        ctx.beginPath()
+                        ctx.moveTo(markerX, padding.top)
+                        ctx.lineTo(markerX, padding.top + chartH)
+                        ctx.stroke()
+                    }
+                }
+                
+                MouseArea {
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onPositionChanged: function(mouse) {
+                        var total = mapViewer.trackTimestamps.length
+                        if (total === 0) return
+                        var px = mouse.x - 44
+                        var ww = Math.max(1, parent.width - 88)
+                        var index = Math.floor(px / ww * total)
+                        index = Math.max(0, Math.min(index, total - 1))
+                        lateralDeviationTooltip.x = mouse.x + 10
+                        lateralDeviationTooltip.y = mouse.y + 10
+                        lateralDeviationTooltip.currentIndex = index
+                        lateralDeviationTooltip.visible = true
+                    }
+                    onExited: { lateralDeviationTooltip.visible = false }
+                    onClicked: function(mouse) {
+                        var total = mapViewer.trackTimestamps.length
+                        if (total === 0) return
+                        var px = mouse.x - 44
+                        var ww = Math.max(1, parent.width - 88)
+                        var index = Math.floor(px / ww * total)
+                        index = Math.max(0, Math.min(index, total - 1))
+                        playIndex = index
+                        updateTrackVisual()
+                    }
+                    onWheel: function(wheel) {
+                        var z = wheel.angleDelta.y > 0 ? 1.1 : 0.9
+                        var padding = { left: 44, right: 44, top: 12, bottom: 22 }
+                        var chartH = Math.max(1, parent.height - padding.top - padding.bottom)
+                        var mouseY = Math.max(0, Math.min(wheel.y - padding.top, chartH))
+                        var normY = mouseY / chartH
+                        
+                        // 计算当前范围
+                        var min = Infinity, max = -Infinity
+                        for (var i = 0; i < trackLateralDeviations.length; i++) {
+                            if (trackLateralDeviations[i] < min) min = trackLateralDeviations[i]
+                            if (trackLateralDeviations[i] > max) max = trackLateralDeviations[i]
+                        }
+                        if (min === Infinity) { min = 0; max = 1 }
+                        var span = max - min
+                        if (Math.abs(span) < 1e-6) { span = 1; min = max - span }
+                        min -= span * 0.1
+                        max += span * 0.1
+                        span = max - min
+                        
+                        var oldSpan = span / Math.max(0.1, lateralDeviationScaleY)
+                        var oldCenter = lateralDeviationCenterValue === lateralDeviationCenterValue ? lateralDeviationCenterValue : (min + max) / 2
+                        var oldMax = oldCenter + oldSpan / 2
+                        var mouseVal = oldMax - normY * oldSpan
+                        var newSpan = oldSpan / z
+                        var newCenter = mouseVal + (normY - 0.5) * newSpan
+                        
+                        var minCenter = min + newSpan / 2
+                        var maxCenter = max - newSpan / 2
+                        if (minCenter > maxCenter) { minCenter = maxCenter = (min + max) / 2 }
+                        newCenter = Math.max(minCenter, Math.min(maxCenter, newCenter))
+                        
+                        lateralDeviationCenterValue = newCenter
+                        lateralDeviationScaleY = Math.max(minChartScale, Math.min(maxChartScale, span / Math.max(1e-6, newSpan)))
+                        wheel.accepted = true
+                    }
+                }
+                
+                Rectangle {
+                    id: lateralDeviationTooltip
+                    width: tooltipText2.width + 12
+                    height: tooltipText2.height + 8
+                    color: "#FFFFFF"
+                    border.color: "#CCCCCC"
+                    border.width: 1
+                    radius: 4
+                    visible: false
+                    z: 100
+                    property int currentIndex: 0
+                    Text {
+                        id: tooltipText2
+                        anchors.centerIn: parent
+                        font.pixelSize: 9
+                        text: {
+                            if (!lateralDeviationTooltip.visible) return ""
+                            var idx = lateralDeviationTooltip.currentIndex
+                            if (idx >= trackLateralDeviations.length) return ""
+                            var devV = trackLateralDeviations[idx]
+                            return "时间: " + formatTime(idx) + "\n" +
+                                    "横向偏差: " + devV.toFixed(2)
+                        }
+                    }
+                }
+            }
+        }
         }
 
     }
@@ -1552,12 +2188,17 @@ Rectangle {
         var newTrackOutOfSafe = []
         var newTrackTimestamps = []
         var newTrackIsAutoDriving = []
+        var newTrackPathIds = []
+        var newTrackUpcomingPaths = []
         var newLeftWheelSetSpeed = []
         var newLeftWheelMeasuredSpeed = []
         var newLeftWheelMileage = []
         var newRightWheelSetSpeed = []
         var newRightWheelMeasuredSpeed = []
         var newRightWheelMileage = []
+        var newTrackExpectedPositions = []
+        var newTrackExpectedPositionsRaw = []
+        var newTrackLateralDeviations = []
 
         for (var i = 0; i < trackRaw.length; i++) {
             var p = mapDataManager.mapToScene(Qt.point(trackRaw[i].x, trackRaw[i].y), Qt.rect(0,0,mapViewer.width,mapViewer.height), 1.0)
@@ -1566,6 +2207,17 @@ Rectangle {
             newTrackOutOfSafe.push(!!trackRaw[i].outOfSafeArea)
             newTrackTimestamps.push(trackRaw[i].timestamp || (i>0?newTrackTimestamps[i-1]+40:0))
             newTrackIsAutoDriving.push(trackRaw[i].isAutoDriving)
+            
+            // 提取路径数据
+            newTrackPathIds.push(trackRaw[i].pathId || 0)
+            newTrackUpcomingPaths.push(trackRaw[i].upcomingPaths || [])
+            
+            // 提取预期位置和横向偏差
+            var expectedPosRaw = Qt.point(trackRaw[i].expectedX || 0, trackRaw[i].expectedY || 0)
+            var expectedScreen = mapDataManager.mapToScene(expectedPosRaw, Qt.rect(0,0,mapViewer.width,mapViewer.height), 1.0)
+            newTrackExpectedPositions.push(expectedScreen)
+            newTrackExpectedPositionsRaw.push(expectedPosRaw)
+            newTrackLateralDeviations.push(trackRaw[i].lateralDeviation || 0)
 
             // 提取车轮数据
             newLeftWheelSetSpeed.push(trackRaw[i].leftWheel ? (trackRaw[i].leftWheel.setSpeed || 0) : 0)
@@ -1582,6 +2234,13 @@ Rectangle {
         trackOutOfSafe = newTrackOutOfSafe
         trackTimestamps = newTrackTimestamps
         trackIsAutoDriving = newTrackIsAutoDriving
+        trackPathIds = newTrackPathIds
+        trackUpcomingPaths = newTrackUpcomingPaths
+        trackExpectedPositions = newTrackExpectedPositions
+        trackExpectedPositionsRaw = newTrackExpectedPositionsRaw
+        trackLateralDeviations = newTrackLateralDeviations
+        // 基于轨迹点预计算每条路径的 SVG 缓存，避免播放时重复计算
+        buildPathSvgCache()
         leftWheelSetSpeed = newLeftWheelSetSpeed
         leftWheelMeasuredSpeed = newLeftWheelMeasuredSpeed
         leftWheelMileage = newLeftWheelMileage
@@ -1591,9 +2250,15 @@ Rectangle {
 
         console.log("buildTrackCache completed, trackScreen length:", trackScreen.length)
 
+        // 更新图表
+        if (wheelChart) wheelChart.requestPaint()
+        if (lateralDeviationChart) lateralDeviationChart.requestPaint()
+
         playIndex = 0
         isPlaying = false
         vehicleTrackShape.updatePartialPath(0, 0)
+        updatePathDisplay()
+        expectedPathShape.updateExpectedPath()
     }
 
     function updateTrackVisual() {

@@ -27,11 +27,10 @@ LocalIpcCommunication::~LocalIpcCommunication()
     qDebug() << "LocalIpcCommunication destroyed";
 }
 
-bool LocalIpcCommunication::Initialize(const QJsonObject& config, const QString& sub_process_id)
+bool LocalIpcCommunication::Initialize(const QJsonObject& config)
 {
     qDebug() << "Initializing LocalIpcCommunication with config:" << config;
     
-    sub_process_id_ = sub_process_id;
 
     // 加载服务器配置
     if (config.contains("server_name")) {
@@ -199,11 +198,7 @@ ConnectionState LocalIpcCommunication::GetConnectionState() const
     return connection_state_;
 }
 
-void LocalIpcCommunication::SetServerName(const QString& name)
-{
-    server_name_ = name;
-    qDebug() << "Server name set to:" << name;
-}
+
 
 void LocalIpcCommunication::OnSocketConnected()
 {
@@ -216,7 +211,6 @@ void LocalIpcCommunication::OnSocketConnected()
     
     // 发送HELLO消息进行握手
     SendHelloMessage();
-
 
     // 发送队列中的消息
     SendQueuedMessages();
@@ -396,12 +390,12 @@ void LocalIpcCommunication::SendHeartbeatMessage()
     heartbeat.topic = "heartbeat";
     heartbeat.msg_id = GenerateMessageId();
     heartbeat.timestamp = QDateTime::currentMSecsSinceEpoch();
-    heartbeat.sender_id = "log_agent";           // 必须与 MainController 启动的 process_id 一致
-    heartbeat.receiver_id = "main_process";      // 收到方不依赖此字段，保持即可
+    heartbeat.sender_id = "AGV分析";           // 必须与 MainController 启动的 process_id 一致
+    heartbeat.receiver_id = "main_process";     
 
     QJsonObject body;
     body["process_state"] = "running";
-    body["process_name"] = "log_agent";
+    body["process_name"] = "AGV分析";
     body["timestamp"] = heartbeat.timestamp;
     heartbeat.body = body;
 

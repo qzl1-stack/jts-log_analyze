@@ -110,50 +110,50 @@ ApplicationWindow {
                                 logIcon.requestPaint();
                             }
                         }
-                    }
-                    
-                    Text {
+                        }
+                        
+                        Text {
                         text: "日志"
                         font.pixelSize: 12
                         color: currentPage === 0 ? Material.accent : "#666666"
                         anchors.horizontalCenter: parent.horizontalCenter
+                        }
+                    }
+                    
+                    MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        
+                        onClicked: {
+                            currentPage = 0
+                        }
+                        
+                        onEntered: {
+                            if (currentPage !== 0) {
+                            parent.color = "#F5F5F5"
+                            }
+                        }
+                        
+                        onExited: {
+                            if (currentPage !== 0) {
+                            parent.color = "transparent"
+                            }
+                        }
                     }
                 }
                 
-                MouseArea {
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    
-                    onClicked: {
-                        currentPage = 0
-                    }
-                    
-                    onEntered: {
-                        if (currentPage !== 0) {
-                            parent.color = "#F5F5F5"
-                        }
-                    }
-                    
-                    onExited: {
-                        if (currentPage !== 0) {
-                            parent.color = "transparent"
-                        }
-                    }
-                }
-            }
-            
-            // 车辆回看按钮
-            Rectangle {
-                id: vehicleButton
+                // 车辆回看按钮
+                Rectangle {
+                    id: vehicleButton
                 width: parent.width
                 height: 64
                 color: currentPage === 1 ? "#E3F2FD" : "transparent"
-                
-                Behavior on color {
+                    
+                    Behavior on color {
                     ColorAnimation { duration: 150 }
-                }
-                
+                    }
+                    
                 // 选中指示器
                 Rectangle {
                     anchors.left: parent.left
@@ -165,7 +165,7 @@ ApplicationWindow {
                 }
                 
                 Column {
-                    anchors.centerIn: parent
+                        anchors.centerIn: parent
                     spacing: 4
                     
                     // 回看图标（播放按钮+时间轴）
@@ -206,43 +206,43 @@ ApplicationWindow {
                         font.pixelSize: 12
                         color: currentPage === 1 ? Material.accent : "#666666"
                         anchors.horizontalCenter: parent.horizontalCenter
+                        }
+                    }
+                    
+                    MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        
+                        onClicked: {
+                            currentPage = 1
+                        }
+                        
+                        onEntered: {
+                            if (currentPage !== 1) {
+                            parent.color = "#F5F5F5"
+                            }
+                        }
+                        
+                        onExited: {
+                            if (currentPage !== 1) {
+                            parent.color = "transparent"
+                            }
+                        }
                     }
                 }
                 
-                MouseArea {
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    
-                    onClicked: {
-                        currentPage = 1
-                    }
-                    
-                    onEntered: {
-                        if (currentPage !== 1) {
-                            parent.color = "#F5F5F5"
-                        }
-                    }
-                    
-                    onExited: {
-                        if (currentPage !== 1) {
-                            parent.color = "transparent"
-                        }
-                    }
-                }
-            }
-            
-            // 黑盒子按钮
-            Rectangle {
-                id: blackBoxButton
+                // 黑盒子按钮
+                Rectangle {
+                    id: blackBoxButton
                 width: parent.width
                 height: 64
                 color: currentPage === 2 ? "#E3F2FD" : "transparent"
-                
-                Behavior on color {
+                    
+                    Behavior on color {
                     ColorAnimation { duration: 150 }
-                }
-                
+                    }
+                    
                 // 选中指示器
                 Rectangle {
                     anchors.left: parent.left
@@ -297,26 +297,26 @@ ApplicationWindow {
                         font.pixelSize: 12
                         color: currentPage === 2 ? Material.accent : "#666666"
                         anchors.horizontalCenter: parent.horizontalCenter
-                    }
-                }
-                
-                MouseArea {
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    
-                    onClicked: {
-                        currentPage = 2
-                    }
-                    
-                    onEntered: {
-                        if (currentPage !== 2) {
-                            parent.color = "#F5F5F5"
                         }
                     }
                     
-                    onExited: {
-                        if (currentPage !== 2) {
+                    MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        
+                        onClicked: {
+                        currentPage = 2
+                        }
+                        
+                        onEntered: {
+                            if (currentPage !== 2) {
+                            parent.color = "#F5F5F5"
+                            }
+                        }
+                        
+                        onExited: {
+                            if (currentPage !== 2) {
                             parent.color = "transparent"
                         }
                     }

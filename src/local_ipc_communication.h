@@ -24,7 +24,7 @@ public:
     virtual ~LocalIpcCommunication();
 
     // ISubProcessIpcCommunication接口实现
-    bool Initialize(const QJsonObject& config, const QString& sub_process_id) override;
+    bool Initialize(const QJsonObject& config) override;
     bool Start() override;
     void Stop() override;
     bool SendMessage(const IpcMessage& message) override;
@@ -39,8 +39,21 @@ public:
     void Disconnect();
     bool IsConnected() const;
 
-    // LocalSocket特有的配置方法
-    void SetServerName(const QString& name);
+protected:
+    QString GetSenderId() override
+    {
+        return "AGV分析";
+    }
+
+    QString GetProcessName() override
+    {
+        return "AGV分析";
+    }
+
+    QString GetProcessVersion() override
+    {
+        return "1.0.0";
+    }
 
 signals:
     void ConnectionEstablished();

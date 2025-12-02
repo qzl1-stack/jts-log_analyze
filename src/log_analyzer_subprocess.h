@@ -9,7 +9,6 @@
 #include <QThread>
 #include <memory>
 #include "local_ipc_communication.h"
-#include "sub_process_status_reporter.h" // 包含状态上报类
 
 class LogAnalyzerStatusReporter; // 前向声明
 
@@ -108,26 +107,6 @@ private:
 
     // IPC通信
     std::unique_ptr<LocalIpcCommunication> ipc_communication_;
-};
-
-
-/**
- * @brief 日志分析器状态报告器
- * 
- * 继承自SubProcessStatusReporter，提供特定于日志分析器的状态信息
- */
-class LogAnalyzerStatusReporter : public SubProcessStatusReporter
-{
-    Q_OBJECT
-
-public:
-    explicit LogAnalyzerStatusReporter(LogAnalyzerSubProcess* process, QObject* parent = nullptr);
-
-protected:
-    QJsonObject CollectStatus() override;
-
-private:
-    LogAnalyzerSubProcess* log_analyzer_process_;
 };
 
 #endif // LOG_ANALYZER_SUBPROCESS_H

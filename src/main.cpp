@@ -43,13 +43,13 @@ void cleanupLogFile(const QString &logFilePath, qint64 maxSizeBytes = 10 * 1024 
 void customMessageOutput(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 {
     // 确保日志目录存在
-    QDir logDir(QCoreApplication::applicationDirPath() + "/log_agent_logs");
+    QDir logDir(QCoreApplication::applicationDirPath() + "/logs");
     if (!logDir.exists()) {
         logDir.mkpath(".");
     }
 
     // 创建日志文件路径
-    QString logFilePath = logDir.filePath("app_log.txt");
+    QString logFilePath = logDir.filePath("logagent_log.txt");
     
     // 定期清理日志文件（如果超过10MB则清空）
     cleanupLogFile(logFilePath, 10 * 1024 * 1024);  // 10MB

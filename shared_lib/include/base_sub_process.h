@@ -13,7 +13,6 @@
 #include "i_sub_process_ipc_communication.h"
 #include "i_sub_process_log_storage.h"
 #include "sub_process_config_manager.h"
-#include "sub_process_status_reporter.h"
 
 /**
  * @brief 子进程抽象基类，提供统一生命周期与状态管理
@@ -48,8 +47,6 @@ public:
     ISubProcessIpcCommunication* GetIpc() const;
     ISubProcessLogStorage* GetLogStorage() const;
     SubProcessConfigManager* GetConfigManager() const;
-    SubProcessStatusReporter* GetStatusReporter() const;
-    QString GetSubProcessId() const { return process_id_; } // 新增：获取子进程ID
 
 signals:
     void StateChanged(ProcessState state);
@@ -74,8 +71,6 @@ private:
     ProcessState state_;
 
     std::unique_ptr<SubProcessConfigManager> config_manager_;
-    std::unique_ptr<SubProcessStatusReporter> status_reporter_;
-    QString process_id_; // 新增：子进程唯一ID
 };
 
 #endif // BASE_SUB_PROCESS_H

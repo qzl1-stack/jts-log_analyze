@@ -94,9 +94,13 @@ struct VehicleTrackPoint {
     bool isStop;
     bool isQuickStop;
     bool isEmergencyStop;
-    qint32 distance;
+    qint32 distance;      // 停止距离
+    qint32 pathId;        // 路径编号
+    QList<qint32> upcomingPaths;  // 将要行驶的路径列表
+    QPointF expectedPosition;  // 预期位置坐标（guidance的第7、8个数据）
+    double lateralDeviation;   // 横向偏差
     
-    VehicleTrackPoint() : timestamp(0), angle(0.0), outOfSafeArea(false), barcode(0), isAutoDriving(false), distance(0) {}
+    VehicleTrackPoint() : timestamp(0), angle(0.0), outOfSafeArea(false), barcode(0), isAutoDriving(false), distance(0), pathId(0), lateralDeviation(0.0) {}
 };
 
 struct MapData {

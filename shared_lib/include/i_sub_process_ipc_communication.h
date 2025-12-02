@@ -26,7 +26,7 @@ public:
         : QObject(parent) {}
     virtual ~ISubProcessIpcCommunication() = default;
 
-    virtual bool Initialize(const QJsonObject& config, const QString& sub_process_id) = 0;
+    virtual bool Initialize(const QJsonObject& config) = 0;
     virtual bool Start() = 0;
     virtual void Stop() = 0;
 
@@ -47,25 +47,31 @@ signals:
     void TopicSubscriptionChanged(const QString& topic, bool subscribed);
 
 protected:
-    /**
-     * @brief 发送 HELLO 消息
-     * 
-     * 子类应该在连接成功后调用此函数
-     */
-    virtual void SendHelloMessage()
+    virtual QString GetSenderId() = 0;
+    virtual QString GetProcessName() = 0;
+    virtual QString GetProcessVersion() = 0;
+
+    virtual IpcMessage CreateHelloMessage()
     {
         IpcMessage hello_message;
         hello_message.type = MessageType::kHello;
         hello_message.topic = "registration";
         hello_message.msg_id = QUuid::createUuid().toString(QUuid::WithoutBraces);
         hello_message.timestamp = QDateTime::currentMSecsSinceEpoch();
-        hello_message.sender_id = "log_agent";
+        hello_message.sender_id = GetSenderId();
         hello_message.receiver_id = "main_process";
 
         QJsonObject body;
-        body["version"] = "1.0.0";
-        body["process_name"] = "log_agent";
+        body["version"] = GetProcessVersion();
+        body["process_name"] = GetProcessName();
         hello_message.body = body;
+
+        return hello_message;
+    }
+
+    virtual void SendHelloMessage()
+    {
+        IpcMessage hello_message = CreateHelloMessage();
         // 调用由子类实现的SendMessage方法
         SendMessage(hello_message);
     }
@@ -144,8 +150,5 @@ protected:
     std::unique_ptr<QTimer> heartbeat_timer_;
     int reconnect_interval_ms_{5000};   // 默认5秒重连
     int heartbeat_interval_ms_{10000};  // 默认10秒心跳
-
-    // 子进程信息
-    QString sub_process_id_;
 };
 #endif // I_SUB_PROCESS_IPC_COMMUNICATION_H

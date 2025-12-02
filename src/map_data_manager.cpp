@@ -369,6 +369,19 @@ QVariantMap MapDataManager::vehicleTrackPointToVariantMap(const VehicleTrackPoin
     result["isQuickStop"] = point.isQuickStop;
     result["isEmergencyStop"] = point.isEmergencyStop;
     result["distance"] = point.distance;
+    result["pathId"] = point.pathId;
+    
+    // 将要行驶的路径列表
+    QVariantList upcomingPathsList;
+    for (qint32 pathId : point.upcomingPaths) {
+        upcomingPathsList.append(pathId);
+    }
+    result["upcomingPaths"] = upcomingPathsList;
+    
+    // 预期位置和横向偏差
+    result["expectedX"] = point.expectedPosition.x();
+    result["expectedY"] = point.expectedPosition.y();
+    result["lateralDeviation"] = point.lateralDeviation;
     
     // 左轮数据
     QVariantMap leftWheel;

@@ -582,9 +582,57 @@ bool MapXmlParser::parseVehicleData(const QString& vehicleText)
             }
         }
         else if (trimmedLine.startsWith("guidance ")) {
+            // guidance 1763560131.247 727 0 825 5345 95848 20698 270.000 0 2 -0.218
             QStringList parts = trimmedLine.split(' ', Qt::SkipEmptyParts);
             if (parts.size() >= 6) {
                 currentPoint.distance = parts[5].toInt();
+            }
+            // 第三个数据（索引2）是路径编号
+            if (parts.size() >= 3) {
+                currentPoint.pathId = parts[2].toInt();
+            }
+            // 第7和第8个数据（索引6和7）是预期位置坐标
+            if (parts.size() >= 8) {
+                currentPoint.expectedPosition.setX(parts[6].toDouble());
+                currentPoint.expectedPosition.setY(parts[7].toDouble());
+                qDebug() << "expectedPosition:" << currentPoint.expectedPosition;
+                
+                // 计算横向偏差
+                // 实际位置在 currentPoint.position 中
+                double actualX = currentPoint.position.x();
+                double actualY = currentPoint.position.y();
+                double expectedX = currentPoint.expectedPosition.x();
+                double expectedY = currentPoint.expectedPosition.y();
+                
+                // 判断 x 或 y 哪个相同，计算偏差
+                double xDiff = qAbs(actualX - expectedX);
+                double yDiff = qAbs(actualY - expectedY);
+                
+                if (xDiff == 0) {
+                    // x 相同，计算 y 的偏差（带符号）
+                    currentPoint.lateralDeviation = actualY - expectedY;
+                } else if (yDiff == 0) {
+                    // y 相同，计算 x 的偏差（带符号）
+                    currentPoint.lateralDeviation = actualX - expectedX;
+                } else {
+                    // 都不相同，计算 x 轴的偏差（带符号）
+                    currentPoint.lateralDeviation = actualX - expectedX;
+                }
+            }
+        }
+        else if (trimmedLine.startsWith("segment ")) {
+            // segment 1763560128.484 727 728 729 730 1989 1990
+            QStringList parts = trimmedLine.split(' ', Qt::SkipEmptyParts);
+            // 从第三个数据开始（索引2及之后）都是路径编号
+            currentPoint.upcomingPaths.clear();
+            if (parts.size() >= 3) {
+                for (int i = 2; i < parts.size(); i++) {
+                    bool ok;
+                    qint32 pathId = parts[i].toInt(&ok);
+                    if (ok) {
+                        currentPoint.upcomingPaths.append(pathId);
+                    }
+                }
             }
         }
         else if (trimmedLine.startsWith("LeftWheel ")) {

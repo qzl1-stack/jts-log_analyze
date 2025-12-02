@@ -3,16 +3,13 @@
 #include <QDateTime>
 #include <QDebug>
 #include "sub_process_config_manager.h"
-#include "sub_process_status_reporter.h"
 
 BaseSubProcess::BaseSubProcess(QObject* parent)
     : QObject(parent)
     , ipc_(nullptr)
     , log_storage_(nullptr)
     , state_(ProcessState::kNotInitialized) // 修正为 kNotInitialized
-    , process_id_() // 初始化为空
     , config_manager_(std::make_unique<SubProcessConfigManager>(this))
-    , status_reporter_(std::make_unique<SubProcessStatusReporter>(this))
 {
     
 }
@@ -34,19 +31,6 @@ bool BaseSubProcess::Initialize(const QJsonObject& config)
         ErrorOccurred("Failed to load configuration.");
         SetState(ProcessState::kError);
         return false;
-    }
-
-    // 从配置中获取子进程ID并设置
-    process_id_ = config_manager_->GetValue("process_id").toString();
-    if (process_id_.isEmpty()) {
-        qWarning("BaseSubProcess: Process ID not found in configuration. Using default.");
-        process_id_ = QUuid::createUuid().toString(QUuid::WithoutBraces); // 生成一个UUID作为默认ID
-    }
-    status_reporter_->SetProcessId(process_id_);
-
-    // Pass IPC to StatusReporter if already set
-    if(ipc_) {
-        status_reporter_->SetIpc(ipc_);
     }
 
     if (OnInitialize(config)) {
@@ -71,7 +55,6 @@ bool BaseSubProcess::Start()
         // Start status reporting with config value or default
         int report_interval = GetConfigManager()->GetValue("reporting.interval_ms", 5000).toInt();
         qDebug() << "Start reporting with interval:" << report_interval;
-        status_reporter_->StartReporting(report_interval); // 取消注释
         emit Started(); // 取消注释
         return true;
     } else {
@@ -87,7 +70,6 @@ void BaseSubProcess::Stop()
         return;
     }
     SetState(ProcessState::kStopping);
-    status_reporter_->StopReporting(); // Stop reporting on stop
     OnStop();
     SetState(ProcessState::kStopped);
     emit Stopped();
@@ -111,10 +93,6 @@ void BaseSubProcess::SetIpc(ISubProcessIpcCommunication* ipc)
         // 在IPC模块上连接消息接收信号
         connect(ipc_, &ISubProcessIpcCommunication::MessageReceived,
                 this, &BaseSubProcess::HandleMessage);
-    }
-
-    if (status_reporter_) {
-        status_reporter_->SetIpc(ipc);
     }
 }
 
@@ -142,11 +120,6 @@ ISubProcessLogStorage* BaseSubProcess::GetLogStorage() const
 SubProcessConfigManager* BaseSubProcess::GetConfigManager() const
 {
     return config_manager_.get();
-}
-
-SubProcessStatusReporter* BaseSubProcess::GetStatusReporter() const
-{
-    return status_reporter_.get();
 }
 
 void BaseSubProcess::SetState(ProcessState state)

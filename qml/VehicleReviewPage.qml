@@ -60,13 +60,64 @@ VehicleReviewPage {
                     }
                     
                     Button {
-                        text: "加载文件"
+                        text: "加载地图"
                         Layout.preferredWidth: 120
                         Layout.preferredHeight: 36
                         onClicked: {
                             fileDialog.open()
                         }
                     }
+                    
+                    // 进度条
+                    Slider {
+                        id: playbackSlider
+                        Layout.preferredWidth: 200
+                        from: 0
+                        to: Math.max(0, mapDataManager.vehicleTrackCount - 1)
+                        stepSize: 1
+                        
+                        // 用于避免循环更新的标志
+                        property bool isUserDragging: false
+                        
+                        // 绑定到 playIndex
+                        value: mapViewer ? (mapViewer.playIndex || 0) : 0
+                        
+                        onPressedChanged: {
+                            isUserDragging = pressed
+                        }
+                        
+                        onValueChanged: {
+                            // 当用户拖动滑块时，更新 playIndex
+                            if (mapViewer && isUserDragging) {
+                                var newIndex = Math.round(value)
+                                if (newIndex !== mapViewer.playIndex) {
+                                    mapViewer.playIndex = newIndex
+                                    mapViewer.updateTrackVisual()
+                                    // 如果正在播放，暂停播放（用户手动控制）
+                                    if (mapViewer.isPlaying) {
+                                        mapViewer.pausePlayback()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 显示当前帧/总帧数
+                    Text {
+                        text: {
+                            if (mapDataManager && mapDataManager.vehicleTrackCount > 0) {
+                                var current = (mapViewer && mapViewer.playIndex !== undefined) ? mapViewer.playIndex + 1 : 0
+                                var total = mapDataManager.vehicleTrackCount
+                                return current + " / " + total
+                            }
+                            return "0 / 0"
+                        }
+                        font.pixelSize: 11
+                        color: "#666666"
+                        Layout.preferredWidth: 60
+                        Layout.alignment: Qt.AlignVCenter
+                    }
+                    
                     Item { Layout.fillWidth: true }
                     
                     // 播放控制按钮
@@ -284,4 +335,4 @@ VehicleReviewPage {
         }
     }
 
-} 
+}

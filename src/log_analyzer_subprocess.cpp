@@ -98,7 +98,7 @@ bool LogAnalyzerSubProcess::OnInitialize(const QJsonObject& config)
         return false;
     }
     
-    if (!ipc_communication_->Initialize(ipc_config_value.toObject(), GetSubProcessId())) {
+    if (!ipc_communication_->Initialize(ipc_config_value.toObject())) {
         qCritical() << "[LogAnalyzerSubProcess] Failed to initialize IPC communication.";
         return false;
     }
@@ -479,16 +479,3 @@ qint64 LogAnalyzerSubProcess::GetCurrentTimestamp() const
 }
 
 
-// LogAnalyzerStatusReporter implementation
-LogAnalyzerStatusReporter::LogAnalyzerStatusReporter(LogAnalyzerSubProcess* process, QObject* parent)
-    : SubProcessStatusReporter(parent), log_analyzer_process_(process)
-{
-}
-
-QJsonObject LogAnalyzerStatusReporter::CollectStatus()
-{
-    if (log_analyzer_process_) {
-        return log_analyzer_process_->GetCurrentStatus();
-    }
-    return SubProcessStatusReporter::CollectStatus(); // Fallback to base implementation
-}
