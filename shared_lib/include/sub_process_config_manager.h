@@ -21,7 +21,6 @@ public:
     VTA_SUBPROCESS_BASE_EXPORT virtual ~SubProcessConfigManager();
 
     VTA_SUBPROCESS_BASE_EXPORT void InitializeDefaultConfig();
-    VTA_SUBPROCESS_BASE_EXPORT bool LoadFromFile(const QString& config_path);
     VTA_SUBPROCESS_BASE_EXPORT bool LoadFromJsonObject(const QJsonObject& config_data);
     VTA_SUBPROCESS_BASE_EXPORT QJsonObject GetConfig() const;
     VTA_SUBPROCESS_BASE_EXPORT QJsonValue GetValue(const QString& key, const QJsonValue& default_value = QJsonValue()) const;

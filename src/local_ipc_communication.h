@@ -96,8 +96,6 @@ private:
     ConnectionState connection_state_;
     mutable QMutex state_mutex_;
     
-    // 定时器 (已移至基类 ISubProcessIpcCommunication)
-    
     // 消息队列
     QMutex message_queue_mutex_;
     QQueue<IpcMessage> outgoing_message_queue_;

@@ -8,6 +8,7 @@
 SubProcessConfigManager::SubProcessConfigManager(QObject* parent)
     : QObject(parent)
 {
+    InitializeDefaultConfig();
 }
 
 SubProcessConfigManager::~SubProcessConfigManager()
@@ -20,8 +21,6 @@ void SubProcessConfigManager::InitializeDefaultConfig()
     config_ = QJsonObject{
         {"ip_table", QJsonArray()},
         {"work_directory",QJsonObject()},
-        {"watch_directories", QJsonArray()},
-        {"analysis_patterns", QJsonObject()},
         {"ipc", QJsonObject{
             {"server_name", "master_ipc_server"},
             {"reconnect_interval_ms", 5000},
@@ -30,31 +29,6 @@ void SubProcessConfigManager::InitializeDefaultConfig()
     };
 }
 
-bool SubProcessConfigManager::LoadFromFile(const QString& config_path)
-{
-    QFile file(config_path);
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        qWarning("ConfigManager: Could not open config file: %s", qPrintable(config_path));
-        return false;
-    }
-
-    QJsonParseError parse_error;
-    QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &parse_error);
-    file.close();
-
-    if (parse_error.error != QJsonParseError::NoError) {
-        qWarning("ConfigManager: Failed to parse config file: %s, error: %s",
-                 qPrintable(config_path), qPrintable(parse_error.errorString()));
-        return false;
-    }
-
-    if (!doc.isObject()) {
-        qWarning("ConfigManager: Config file content is not a JSON object: %s", qPrintable(config_path));
-        return false;
-    }
-
-    return LoadFromJsonObject(doc.object());
-}
 
 bool SubProcessConfigManager::LoadFromJsonObject(const QJsonObject& config_data)
 {
