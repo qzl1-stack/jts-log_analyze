@@ -75,13 +75,37 @@ protected:
         // 调用由子类实现的SendMessage方法
         SendMessage(hello_message);
     }
+
+
+    virtual IpcMessage CreateHeartbeatMessage()
+    {
+        IpcMessage heartbeat;
+        heartbeat.type = MessageType::kHeartbeat;
+        heartbeat.topic = "heartbeat";
+        heartbeat.msg_id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        heartbeat.timestamp = QDateTime::currentMSecsSinceEpoch();
+        heartbeat.sender_id = GetSenderId();
+        heartbeat.receiver_id = "main_process";
+
+        QJsonObject body;
+        body["process_state"] = "running";
+        body["process_name"] = GetProcessName();
+        body["timestamp"] = heartbeat.timestamp;
+        heartbeat.body = body;
+
+        return heartbeat;
+    }
+
+    virtual void SendHeartbeatMessage()
+    {
+        if (GetConnectionState() != ConnectionState::kConnected) {
+            return;
+        }
+
+        IpcMessage heartbeat = CreateHeartbeatMessage();
+        SendMessage(heartbeat);
+    }
     
-    /**
-     * @brief 初始化通用定时器（心跳和重连）
-     * 
-     * 子类应该在 Initialize 方法中调用此函数
-     * @return true 如果成功
-     */
     bool InitializeTimers()
     {
         // 重连定时器
@@ -99,19 +123,12 @@ protected:
         return true;
     }
 
-    /**
-     * @brief 启动重连定时器
-     */
     void StartReconnectTimer()
     {
         if (reconnect_timer_) {
             reconnect_timer_->start();
         }
     }
-
-    /**
-     * @brief 停止重连定时器
-     */
     void StopReconnectTimer()
     {
         if (reconnect_timer_) {
@@ -119,9 +136,6 @@ protected:
         }
     }
 
-    /**
-     * @brief 启动心跳定时器
-     */
     void StartHeartbeatTimer()
     {
         if (heartbeat_timer_) {
@@ -129,9 +143,6 @@ protected:
         }
     }
 
-    /**
-     * @brief 停止心跳定时器
-     */
     void StopHeartbeatTimer()
     {
         if (heartbeat_timer_) {
@@ -142,7 +153,11 @@ protected:
 protected slots:
     // 默认实现的重连和心跳处理
     virtual void OnReconnectTimer() = 0; 
-    virtual void OnHeartbeatTimer() = 0;  
+    
+    virtual void OnHeartbeatTimer()
+    {
+        SendHeartbeatMessage();
+    } 
 
 protected:
     // 定时器

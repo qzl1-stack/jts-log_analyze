@@ -36,7 +36,6 @@ protected:
 
 
 private:
-    void SetupConfiguration();
     // 消息处理方法
     void HandleConfigUpdateMessage(const IpcMessage& message);
     void HandleCommandMessage(const IpcMessage& message);
@@ -45,8 +44,6 @@ private:
     void SendErrorReport(const QString& error_message, const QString& context = QString());
 
 private:
-    // 配置参数
-    int heartbeat_interval_ms_;
     // IPC通信
     std::unique_ptr<LocalIpcCommunication> ipc_communication_;
 };

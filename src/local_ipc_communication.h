@@ -66,9 +66,8 @@ protected slots:
     void OnSocketReadyRead();
     
     // 默认实现的重连和心跳处理
-    void OnReconnectTimer() override; // 保持 override
-    void OnHeartbeatTimer() override;   // 保持 override
-
+    void OnReconnectTimer() override; 
+    
 private:
     // 初始化方法
     bool InitializeSocket();
@@ -79,8 +78,6 @@ private:
     void SendQueuedMessages();
     
     void UpdateConnectionState(ConnectionState new_state);
-    
-    void SendHeartbeatMessage();
     
     // 工具方法
     QByteArray PrepareMessageForTransmission(const IpcMessage& message);

@@ -14,8 +14,7 @@
 #include "sub_process_config_manager.h"
 
 LogAnalyzerSubProcess::LogAnalyzerSubProcess(QObject* parent)
-    : BaseSubProcess(parent)
-    , heartbeat_interval_ms_(5000)      // 5秒心跳
+    : BaseSubProcess(parent)   
 {   
     // 创建并设置IPC通信
     ipc_communication_ = std::make_unique<LocalIpcCommunication>(this);
@@ -42,9 +41,6 @@ bool LogAnalyzerSubProcess::OnInitialize(const QJsonObject& config)
         qCritical() << "[LogAnalyzerSubProcess] Failed to initialize IPC communication.";
         return false;
     }
-
-    // 从ConfigManager加载配置
-    SetupConfiguration();
     return true;
 }
 
@@ -97,16 +93,6 @@ void LogAnalyzerSubProcess::OnHandleMessage(const IpcMessage& message)
     }
 }
 
-void LogAnalyzerSubProcess::SetupConfiguration()
-{
-    auto* config_manager = GetConfigManager();
-    if (!config_manager) return;
-
-    // 加载定时器间隔
-    heartbeat_interval_ms_ = config_manager->GetValue("heartbeat_interval_ms", heartbeat_interval_ms_).toInt();
-
-    qDebug() << "Configuration loaded successfully from ConfigManager";
-}
 
 void LogAnalyzerSubProcess::HandleConfigUpdateMessage(const IpcMessage& message)
 {

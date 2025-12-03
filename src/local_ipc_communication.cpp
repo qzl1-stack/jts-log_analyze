@@ -65,7 +65,6 @@ bool LocalIpcCommunication::Start()
 {
     // 启动重连和心跳定时器
     StartReconnectTimer();
-    // StartHeartbeatTimer();
 
     // 尝试连接
     return Connect();
@@ -171,12 +170,10 @@ bool LocalIpcCommunication::SendMessage(const IpcMessage& message)
     // 添加消息到队列
     outgoing_message_queue_.enqueue(message);
     qDebug() << "Message queued:" << MessageTypeToString(message.type);
-    // qDebug() << "body:" << message.body;
     qDebug() << "sender_id:" << message.sender_id;
 
     // 如果已连接，立即发送
     if (IsConnected()) {
-        // 移除立即发送逻辑，只负责入队
         queue_locker.unlock();
         SendQueuedMessages();
         return true;
@@ -205,49 +202,27 @@ void LocalIpcCommunication::OnSocketConnected()
     qDebug() << "Socket connected to server";
     
     UpdateConnectionState(ConnectionState::kConnected);
-     
-    // 停止重连定时器
     StopReconnectTimer();
-    
-    // 发送HELLO消息进行握手
-    SendHelloMessage();
-
-    // 发送队列中的消息
+    SendHelloMessage(); //调用基类实现
     SendQueuedMessages();
-    
-    // 开始心跳
     StartHeartbeatTimer();
-    
-    // 发出连接成功信号
     emit ConnectionEstablished();
 }
 
 void LocalIpcCommunication::OnSocketDisconnected()
 {
     qDebug() << "Socket disconnected from server";
-    
-    // 移除外层加锁，避免重复加锁
     UpdateConnectionState(ConnectionState::kDisconnected);
-    
-    // 如果启用自动重连，开始重连定时器
     if (auto_reconnect_enabled_) {
         StartReconnectTimer();
     }
-    
-    // 发出连接断开信号
     emit ConnectionLost();
 }
 
 void LocalIpcCommunication::OnSocketError(QLocalSocket::LocalSocketError error)
 {
     qWarning() << "Socket error:" << error << socket_->errorString();
-    
     UpdateConnectionState(ConnectionState::kError);
-    
-    // // 发出错误信号
-    // emit ErrorOccurred(socket_->errorString());
-    
-    // 如果启用自动重连，开始重连定时器
     if (auto_reconnect_enabled_) {
         StartReconnectTimer();
     }
@@ -379,35 +354,7 @@ void LocalIpcCommunication::UpdateConnectionState(ConnectionState new_state)
 }
 
 
-void LocalIpcCommunication::SendHeartbeatMessage()
-{
-    if (!IsConnected()) {
-        return;
-    }
 
-    IpcMessage heartbeat;
-    heartbeat.type = MessageType::kHeartbeat;
-    heartbeat.topic = "heartbeat";
-    heartbeat.msg_id = GenerateMessageId();
-    heartbeat.timestamp = QDateTime::currentMSecsSinceEpoch();
-    heartbeat.sender_id = "AGV分析";           // 必须与 MainController 启动的 process_id 一致
-    heartbeat.receiver_id = "main_process";     
-
-    QJsonObject body;
-    body["process_state"] = "running";
-    body["process_name"] = "AGV分析";
-    body["timestamp"] = heartbeat.timestamp;
-    heartbeat.body = body;
-
-    // 使用统一的序列化方法
-    QByteArray payload = PrepareMessageForTransmission(heartbeat);
-    
-    // 直接发送序列化后的数据（已包含换行符）
-    const qint64 n = socket_->write(payload);
-    socket_->flush();
-    qDebug() << "heartbeat message:" << payload;
-    qDebug() << "Heartbeat sent, bytes:" << n;
-}
 
 QByteArray LocalIpcCommunication::PrepareMessageForTransmission(const IpcMessage& message)
 {
@@ -440,13 +387,5 @@ void LocalIpcCommunication::OnReconnectTimer()
     if (GetConnectionState() != ConnectionState::kConnected) {
         qDebug() << "Attempting to reconnect to server:" << server_name_;
         Connect();
-    }
-}
-
-void LocalIpcCommunication::OnHeartbeatTimer()
-{
-    // 如果已连接，发送心跳消息
-    if (GetConnectionState() == ConnectionState::kConnected) {
-        SendHeartbeatMessage(); // 这会调用 LocalIpcCommunication 自己的 SendHeartbeatMessage
     }
 }
