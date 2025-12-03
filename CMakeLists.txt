@@ -77,8 +77,6 @@ qt_add_executable(appLog_analyzer
     src/log_analyzer_subprocess.h
     src/local_ipc_communication.cpp
     src/local_ipc_communication.h
-    src/file_log_storage.cpp
-    src/file_log_storage.h
     src/map_xml_parser.cpp
     src/map_xml_parser.h
     src/map_data_manager.cpp
@@ -141,12 +139,6 @@ install(TARGETS appLog_analyzer
 
 # Windows 特定设置
 if(WIN32)
-    # 查找 zlib1.dll 的位置
-    # find_file(ZLIB_DLL
-    #     NAMES zlib1.dll
-    #     PATHS ${ZLIB_ROOT}/bin
-    #     NO_DEFAULT_PATH
-    # )
     add_custom_command(TARGET appLog_analyzer POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory "${SSH_TOOLS_DEPLOY_DIR}"
     COMMAND ${CMAKE_COMMAND} -E copy "${SSHPASS_SOURCE_PATH}" "${SSH_TOOLS_DEPLOY_DIR}/sshpass.exe"
@@ -154,28 +146,6 @@ if(WIN32)
     COMMAND ${CMAKE_COMMAND} -E copy "${SCP_SOURCE_PATH}" "${SSH_TOOLS_DEPLOY_DIR}/scp.exe"
     COMMENT "Copying sshpass.exe for deployment"
     )
-    # if(ZLIB_DLL)
-    #     add_custom_command(TARGET appLog_analyzer POST_BUILD
-    #         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    #         ${ZLIB_DLL}
-    #         $<TARGET_FILE_DIR:appLog_analyzer>
-    #         COMMENT "Copying zlib1.dll to output directory"
-    #     )
-    #     find_program(WINDEPLOYQT_PATH windeployqt HINTS "${Qt6_HOST_BINS}")
-    #     if(WINDEPLOYQT_PATH)
-    #     add_custom_command(TARGET appLog_analyzer POST_BUILD
-    #             COMMAND "${WINDEPLOYQT_PATH}" 
-    #                 --qmldir "${CMAKE_SOURCE_DIR}/qml" 
-    #                 --qml 
-    #                 --no-translations 
-    #                 --no-compiler-runtime 
-    #                 "$<TARGET_FILE:appLog_analyzer>" 
-    #             COMMENT "Running windeployqt for appLog_analyzer..."
-    #         )
-    #     endif()
-    # else()
-    #     message(WARNING "zlib1.dll not found. Please ensure it's in your PATH.")
-    # endif()
 
     set_target_properties(appLog_analyzer PROPERTIES
         WIN32_EXECUTABLE TRUE

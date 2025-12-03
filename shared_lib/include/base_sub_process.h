@@ -9,9 +9,7 @@
 #include <memory> // For std::unique_ptr
 #include "process_state.h"
 #include "message.h"
-#include "log_entry.h"
 #include "i_sub_process_ipc_communication.h"
-#include "i_sub_process_log_storage.h"
 #include "sub_process_config_manager.h"
 
 /**
@@ -40,12 +38,10 @@ public:
 
     // 依赖注入
     void SetIpc(ISubProcessIpcCommunication* ipc);
-    void SetLogStorage(ISubProcessLogStorage* storage);
 
     // 访问器
     ProcessState GetState() const;
     ISubProcessIpcCommunication* GetIpc() const;
-    ISubProcessLogStorage* GetLogStorage() const;
     SubProcessConfigManager* GetConfigManager() const;
 
 signals:
@@ -67,7 +63,6 @@ protected:
 
 private:
     QPointer<ISubProcessIpcCommunication> ipc_;
-    QPointer<ISubProcessLogStorage> log_storage_;
     ProcessState state_;
 
     std::unique_ptr<SubProcessConfigManager> config_manager_;

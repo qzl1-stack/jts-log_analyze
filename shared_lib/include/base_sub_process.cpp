@@ -97,11 +97,6 @@ void BaseSubProcess::SetIpc(ISubProcessIpcCommunication* ipc)
     }
 }
 
-void BaseSubProcess::SetLogStorage(ISubProcessLogStorage* storage)
-{
-    if (storage) storage->setParent(this);
-    log_storage_ = storage;
-}
 
 ProcessState BaseSubProcess::GetState() const
 {
@@ -113,10 +108,6 @@ ISubProcessIpcCommunication* BaseSubProcess::GetIpc() const
     return ipc_;
 }
 
-ISubProcessLogStorage* BaseSubProcess::GetLogStorage() const
-{
-    return log_storage_.data();
-}
 
 SubProcessConfigManager* BaseSubProcess::GetConfigManager() const
 {
