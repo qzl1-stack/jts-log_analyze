@@ -12,7 +12,7 @@ LocalIpcCommunication::LocalIpcCommunication(QObject* parent)
     , socket_(nullptr)
     , server_name_("log_analyzer_socket")
     , connection_state_(ConnectionState::kDisconnected)
-    , max_queue_size_(1000)
+    // max_queue_size_ initialized in base class
     , connection_timeout_ms_(10000)     // 10秒连接超时
     , auto_reconnect_enabled_(true)
     , messages_sent_(0)
@@ -158,30 +158,7 @@ void LocalIpcCommunication::Disconnect()
     outgoing_message_queue_.clear();
 }
 
-bool LocalIpcCommunication::SendMessage(const IpcMessage& message)
-{
-    QMutexLocker queue_locker(&message_queue_mutex_);
-    // 检查队列大小
-    if (outgoing_message_queue_.size() >= max_queue_size_) {
-        qWarning() << "Message queue full, dropping oldest message";
-        outgoing_message_queue_.dequeue();
-    }
-    
-    // 添加消息到队列
-    outgoing_message_queue_.enqueue(message);
-    qDebug() << "Message queued:" << MessageTypeToString(message.type);
-    qDebug() << "sender_id:" << message.sender_id;
-
-    // 如果已连接，立即发送
-    if (IsConnected()) {
-        queue_locker.unlock();
-        SendQueuedMessages();
-        return true;
-    }
-
-    qDebug() << "Message queued, will send when connected";
-    return false;
-}
+// SendMessage 已在基类实现
 
 bool LocalIpcCommunication::IsConnected() const
 {
@@ -297,50 +274,7 @@ void LocalIpcCommunication::ProcessCompleteMessage(const QByteArray& message_dat
     }
 }
 
-void LocalIpcCommunication::SendQueuedMessages()
-{
-    // (1) 先获取 state_mutex_ 来检查连接状态
-    bool is_connected_state;
-    {
-        QMutexLocker state_locker(&state_mutex_);
-        is_connected_state = (connection_state_ == ConnectionState::kConnected);
-    } // state_locker 在这里释放
-
-    if (!is_connected_state) {
-        qDebug() << "Not connected, stopping SendQueuedMessages.";
-        return;
-    }
-
-    // (2) 然后获取 message_queue_mutex_ 来处理消息队列
-    QMutexLocker queue_locker(&message_queue_mutex_);
-
-    if (outgoing_message_queue_.isEmpty()) {
-        return; // 队列为空，无需发送
-    }
-
-    IpcMessage message = outgoing_message_queue_.head(); // 获取头部消息，不立即移除
-
-    queue_locker.unlock(); // 暂时解锁队列
-
-    QByteArray message_data = PrepareMessageForTransmission(message);
-
-    qint64 bytes_written = socket_->write(message_data);
-    if (bytes_written != -1 && bytes_written == message_data.size()) {
-        socket_->flush();
-        messages_sent_++;
-        qDebug() << "Message sent:" << MessageTypeToString(message.type)
-                 << "to" << message.receiver_id;
-
-        queue_locker.relock(); // 重新锁定，移除已发送消息
-        outgoing_message_queue_.dequeue();
-
-        if (!outgoing_message_queue_.isEmpty()) {
-            QMetaObject::invokeMethod(this, "SendQueuedMessages", Qt::QueuedConnection);
-        }
-    } else {
-        qWarning() << "Failed to send message: " << socket_->errorString();
-    }
-}
+// SendQueuedMessages 已在基类实现
 
 
 void LocalIpcCommunication::UpdateConnectionState(ConnectionState new_state)
@@ -353,16 +287,6 @@ void LocalIpcCommunication::UpdateConnectionState(ConnectionState new_state)
     }
 }
 
-
-
-
-QByteArray LocalIpcCommunication::PrepareMessageForTransmission(const IpcMessage& message)
-{
-    QJsonDocument doc(message.ToJson());
-    QByteArray data = doc.toJson(QJsonDocument::Compact);
-    data.append('\n'); // 消息分隔符
-    return data;
-}
 
 IpcMessage LocalIpcCommunication::ParseReceivedMessage(const QByteArray& data)
 {

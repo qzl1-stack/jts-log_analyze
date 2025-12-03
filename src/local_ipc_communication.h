@@ -27,7 +27,7 @@ public:
     bool Initialize(const QJsonObject& config) override;
     bool Start() override;
     void Stop() override;
-    bool SendMessage(const IpcMessage& message) override;
+    
     bool PublishToTopic(const QString& topic, const IpcMessage& message) override;
     bool SubscribeToTopic(const QString& topic) override;
     bool UnsubscribeFromTopic(const QString& topic) override;
@@ -68,6 +68,13 @@ protected slots:
     // 默认实现的重连和心跳处理
     void OnReconnectTimer() override; 
     
+protected:
+    // 实现基类的纯虚函数
+    qint64 WriteData(const QByteArray& data) override{
+        qint64 bytes_written = socket_->write(data);
+        
+    }
+
 private:
     // 初始化方法
     bool InitializeSocket();
@@ -75,12 +82,10 @@ private:
     // 消息处理方法
     void ProcessIncomingData();
     void ProcessCompleteMessage(const QByteArray& message_data);
-    void SendQueuedMessages();
     
     void UpdateConnectionState(ConnectionState new_state);
     
     // 工具方法
-    QByteArray PrepareMessageForTransmission(const IpcMessage& message);
     IpcMessage ParseReceivedMessage(const QByteArray& data);
     QString GenerateMessageId() const;
 
@@ -93,9 +98,7 @@ private:
     ConnectionState connection_state_;
     mutable QMutex state_mutex_;
     
-    // 消息队列
-    QMutex message_queue_mutex_;
-    QQueue<IpcMessage> outgoing_message_queue_;
+    // 消息队列 (已移至基类)
     
     // Topic订阅管理
     QMutex subscription_mutex_;
@@ -105,7 +108,6 @@ private:
     QByteArray receive_buffer_;
     
     // 配置参数
-    int max_queue_size_;
     int connection_timeout_ms_;
     bool auto_reconnect_enabled_;
     
