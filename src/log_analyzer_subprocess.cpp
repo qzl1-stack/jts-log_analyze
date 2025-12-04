@@ -25,11 +25,8 @@ LogAnalyzerSubProcess::~LogAnalyzerSubProcess()
 {
 }
 
-bool LogAnalyzerSubProcess::OnInitialize(const QJsonObject& config)
-{
-    Q_UNUSED(config)
-    qDebug() << "Initializing LogAnalyzerSubProcess...";
-    
+bool LogAnalyzerSubProcess::OnInitialize()
+{   
     // 初始化IPC
     QJsonValue ipc_config_value = GetConfigManager()->GetValue("ipc");
     if (!ipc_config_value.isObject()) {

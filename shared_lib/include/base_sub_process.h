@@ -29,7 +29,7 @@ public:
     virtual ~BaseSubProcess();
 
     // 生命周期（对外）
-    VTA_SUBPROCESS_BASE_EXPORT bool Initialize(const QJsonObject& config);
+    VTA_SUBPROCESS_BASE_EXPORT bool Initialize();
     VTA_SUBPROCESS_BASE_EXPORT bool Start();
     VTA_SUBPROCESS_BASE_EXPORT void Stop();
 
@@ -52,7 +52,7 @@ signals:
 
 protected:
     // 子类实现
-    virtual bool OnInitialize(const QJsonObject& config) = 0;
+    virtual bool OnInitialize() = 0;
     virtual bool OnStart() = 0;
     virtual void OnStop() = 0;
     virtual void OnHandleMessage(const IpcMessage& message) = 0;

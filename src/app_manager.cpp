@@ -275,15 +275,8 @@ void AppManager::onApplicationReady()
     // 在GUI加载完成后，再初始化和启动子进程
     if (m_logAnalyzerSubProcess) {
         qDebug() << "AppManager: 准备启动子进程服务...";
-        
-        // 创建一个只包含需要覆盖的IPC配置的对象
-        // 其他IPC值将使用在SubProcessConfigManager中定义的默认值
-        QJsonObject config_overrides;
-        QJsonObject ipc_config;
-        ipc_config["server_name"] = "master_ipc_server"; // 覆盖默认的服务器名称
-        config_overrides["ipc"] = ipc_config;
 
-        if (m_logAnalyzerSubProcess->Initialize(config_overrides)) {
+        if (m_logAnalyzerSubProcess->Initialize()) {
             m_logAnalyzerSubProcess->Start();
         } else {
             qWarning() << "AppManager: LogAnalyzerSubProcess 初始化失败。";

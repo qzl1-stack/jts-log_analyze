@@ -7,7 +7,6 @@
 BaseSubProcess::BaseSubProcess(QObject* parent)
     : QObject(parent)
     , ipc_(nullptr)
-    , log_storage_(nullptr)
     , state_(ProcessState::kNotInitialized) // 修正为 kNotInitialized
     , config_manager_(std::make_unique<SubProcessConfigManager>(this))
 {
@@ -18,7 +17,7 @@ BaseSubProcess::~BaseSubProcess()
 {
 }
 
-bool BaseSubProcess::Initialize(const QJsonObject& config)
+bool BaseSubProcess::Initialize()
 {
     if (state_ != ProcessState::kNotInitialized) {
         ErrorOccurred("Initialize called on an already initialized process.");
@@ -26,14 +25,7 @@ bool BaseSubProcess::Initialize(const QJsonObject& config)
     }
     SetState(ProcessState::kInitializing);
 
-    // Load configuration
-    if (!config_manager_->LoadFromJsonObject(config)) {
-        ErrorOccurred("Failed to load configuration.");
-        SetState(ProcessState::kError);
-        return false;
-    }
-
-    if (OnInitialize(config)) {
+    if (OnInitialize()) {
         SetState(ProcessState::kInitialized);
         return true;
     } else {

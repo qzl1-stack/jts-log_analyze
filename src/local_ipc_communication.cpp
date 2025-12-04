@@ -63,9 +63,6 @@ bool LocalIpcCommunication::Initialize(const QJsonObject& config)
 
 bool LocalIpcCommunication::Start()
 {
-    // 启动重连和心跳定时器
-    StartReconnectTimer();
-
     // 尝试连接
     return Connect();
 }
@@ -74,8 +71,6 @@ void LocalIpcCommunication::Stop()
 {
     Disconnect();
 }
-
-
 
 bool LocalIpcCommunication::Connect()
 {
@@ -122,7 +117,6 @@ void LocalIpcCommunication::Disconnect()
     outgoing_message_queue_.clear();
 }
 
-// SendMessage 已在基类实现
 
 bool LocalIpcCommunication::IsConnected() const
 {
@@ -154,9 +148,6 @@ void LocalIpcCommunication::OnSocketDisconnected()
 {
     qDebug() << "Socket disconnected from server";
     UpdateConnectionState(ConnectionState::kDisconnected);
-    if (auto_reconnect_enabled_) {
-        StartReconnectTimer();
-    }
     emit ConnectionLost();
 }
 
@@ -238,8 +229,6 @@ void LocalIpcCommunication::ProcessCompleteMessage(const QByteArray& message_dat
     }
 }
 
-// SendQueuedMessages 已在基类实现
-
 
 void LocalIpcCommunication::UpdateConnectionState(ConnectionState new_state)
 {
@@ -264,10 +253,6 @@ IpcMessage LocalIpcCommunication::ParseReceivedMessage(const QByteArray& data)
     return IpcMessage::FromJson(doc.object());
 }
 
-QString LocalIpcCommunication::GenerateMessageId() const
-{
-    return QUuid::createUuid().toString(QUuid::WithoutBraces);
-}
 
 void LocalIpcCommunication::OnReconnectTimer()
 {

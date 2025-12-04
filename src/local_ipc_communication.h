@@ -83,7 +83,6 @@ private:
     
     // 工具方法
     IpcMessage ParseReceivedMessage(const QByteArray& data);
-    QString GenerateMessageId() const;
 
 private:
     // 网络连接

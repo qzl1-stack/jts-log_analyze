@@ -51,10 +51,6 @@ set(QT_QML_GENERATE_QMLLS_INI ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Quick Widgets Network Sql)
 
-# set(ZLIB_ROOT "D:/MSYS2/mingw64") # 请确保这是你 MSYS2 mingw64 的实际根目录
-# set(CMAKE_PREFIX_PATH "${ZLIB_ROOT};${CMAKE_PREFIX_PATH}")
-# find_package(ZLIB REQUIRED)
-
 set(VTA_SUBPROCESS_BASE_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shared_lib")
 
 qt_standard_project_setup(REQUIRES 6.5)

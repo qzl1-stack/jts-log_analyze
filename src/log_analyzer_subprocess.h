@@ -29,7 +29,7 @@ signals:
 
 protected:
     // 继承自BaseSubProcess的虚函数实现
-    bool OnInitialize(const QJsonObject& config) override;
+    bool OnInitialize() override;
     bool OnStart() override;
     void OnStop() override;
     void OnHandleMessage(const IpcMessage& message) override;
