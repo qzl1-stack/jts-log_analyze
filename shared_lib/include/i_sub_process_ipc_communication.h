@@ -67,12 +67,6 @@ public:
         return false;
     }
 
-    virtual bool PublishToTopic(const QString& topic,
-                                const IpcMessage& message) = 0;
-
-    virtual bool SubscribeToTopic(const QString& topic) = 0;
-    virtual bool UnsubscribeFromTopic(const QString& topic) = 0;
-    virtual QStringList GetSubscribedTopics() const = 0;
 
 public slots:
     /**

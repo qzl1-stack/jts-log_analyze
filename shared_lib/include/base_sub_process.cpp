@@ -78,7 +78,7 @@ void BaseSubProcess::Stop()
 void BaseSubProcess::HandleMessage(const IpcMessage& message)
 {
     // Intercept config updates before passing to subclass
-    qDebug() << "Hotconfig:" << message.body;
+    qDebug() << "message:" << message.body;
     if (message.type == MessageType::kConfigUpdate) {
         if (message.body.contains("updated_config") && message.body["updated_config"].isObject()) {
             config_manager_->LoadFromJsonObject(message.body);

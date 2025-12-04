@@ -75,43 +75,7 @@ void LocalIpcCommunication::Stop()
     Disconnect();
 }
 
-bool LocalIpcCommunication::PublishToTopic(const QString& topic, const IpcMessage& message)
-{
-    // For local IPC, we'll just send the message directly to the main process
-    // as if it were a direct message. The main process will handle topic routing.
-    IpcMessage topic_message = message;
-    topic_message.topic = topic; // Ensure topic is set in the message
-    // return SendMessage(topic_message);
-}
 
-bool LocalIpcCommunication::SubscribeToTopic(const QString& topic)
-{
-    QMutexLocker locker(&subscription_mutex_);
-    if (!subscribed_topics_.contains(topic)) {
-        subscribed_topics_.append(topic);
-        qDebug() << "Subscribed to topic:" << topic;
-        emit TopicSubscriptionChanged(topic, true);
-        return true;
-    }
-    return false;
-}
-
-bool LocalIpcCommunication::UnsubscribeFromTopic(const QString& topic)
-{
-    QMutexLocker locker(&subscription_mutex_);
-    if (subscribed_topics_.removeAll(topic) > 0) {
-        qDebug() << "Unsubscribed from topic:" << topic;
-        emit TopicSubscriptionChanged(topic, false);
-        return true;
-    }
-    return false;
-}
-
-QStringList LocalIpcCommunication::GetSubscribedTopics() const
-{
-    // QMutexLocker locker(&subscription_mutex_);
-    return subscribed_topics_;
-}
 
 bool LocalIpcCommunication::Connect()
 {

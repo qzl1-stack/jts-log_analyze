@@ -7,7 +7,7 @@
 #include <QMutex>
 #include <QQueue>
 #include <memory>
-#include <QMetaObject> // 新增
+#include <QMetaObject> 
 
 /**
  * @brief TCP实现的IPC通信类
@@ -28,10 +28,6 @@ public:
     bool Start() override;
     void Stop() override;
     
-    bool PublishToTopic(const QString& topic, const IpcMessage& message) override;
-    bool SubscribeToTopic(const QString& topic) override;
-    bool UnsubscribeFromTopic(const QString& topic) override;
-    QStringList GetSubscribedTopics() const override;
     ConnectionState GetConnectionState() const override;
     
     // LocalSocket特有的方法
@@ -65,14 +61,14 @@ protected slots:
     void OnSocketError(QLocalSocket::LocalSocketError error);
     void OnSocketReadyRead();
     
-    // 默认实现的重连和心跳处理
+    // 默认实现的重连
     void OnReconnectTimer() override; 
     
 protected:
     // 实现基类的纯虚函数
     qint64 WriteData(const QByteArray& data) override{
         qint64 bytes_written = socket_->write(data);
-        
+        return bytes_written;
     }
 
 private:
@@ -97,12 +93,6 @@ private:
     // 连接状态
     ConnectionState connection_state_;
     mutable QMutex state_mutex_;
-    
-    // 消息队列 (已移至基类)
-    
-    // Topic订阅管理
-    QMutex subscription_mutex_;
-    QStringList subscribed_topics_;
     
     // 数据接收缓冲区
     QByteArray receive_buffer_;
